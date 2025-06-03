@@ -72,6 +72,20 @@ The application is configured to use Render's disk storage for the SQLite databa
 - Verify that all required environment variables are set
 - Ensure the `gunicorn` package is in `requirements.txt`
 
+### Database Errors ("unable to open database file")
+
+If you encounter an error like "unable to open database file", it may be due to permission issues with the database directory. The application has been configured to:
+
+1. Create the `/data` directory if it doesn't exist
+2. Set appropriate permissions (777) on the directory
+3. Ensure the database path exists before attempting to connect
+
+These fixes should resolve most database permission issues on Render. If you still encounter problems:
+
+- Check the Render logs for any permission-related errors
+- Verify that the disk is properly mounted at `/data`
+- Try redeploying the application
+
 ### Email Alerts Not Sending
 
 - Verify your Gmail App Password is correct

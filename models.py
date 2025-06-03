@@ -1,5 +1,6 @@
 import sqlite3
 import hashlib
+import os
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from config import Config
@@ -7,7 +8,16 @@ from config import Config
 class Database:
     def __init__(self, db_path=None):
         self.db_path = db_path or Config.DATABASE_PATH
+        # Ensure the directory exists
+        self._ensure_db_directory()
         self.init_db()
+    
+    def _ensure_db_directory(self):
+        """Ensure the database directory exists"""
+        db_dir = os.path.dirname(self.db_path)
+        if db_dir and not os.path.exists(db_dir):
+            os.makedirs(db_dir, exist_ok=True)
+            print(f"Created database directory: {db_dir}")
     
     def get_connection(self):
         conn = sqlite3.connect(self.db_path)
