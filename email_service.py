@@ -3,6 +3,7 @@ import ssl
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from datetime import datetime
+import pytz
 import logging
 import urllib.parse
 from models import Database, Subscriber, SentAlert
@@ -18,6 +19,18 @@ class EmailService:
         self.username = Config.EMAIL_USERNAME
         self.password = Config.EMAIL_PASSWORD
         self.from_email = Config.EMAIL_FROM
+        # Set up Central Time timezone
+        self.central_tz = pytz.timezone('America/Chicago')
+    
+    def get_central_time(self):
+        """Get current time in Central Time"""
+        return datetime.now(self.central_tz)
+    
+    def format_central_time(self, dt=None):
+        """Format datetime in Central Time"""
+        if dt is None:
+            dt = self.get_central_time()
+        return dt.strftime('%Y-%m-%d %I:%M:%S %p CST')
     
     def create_html_email(self, incidents):
         """Create HTML email content for incidents"""
@@ -150,7 +163,7 @@ class EmailService:
                 
                 <div class="alert-info">
                     <strong>📊 Alert Summary:</strong><br>
-                    {len(incidents)} new incident(s) detected at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br>
+                    {len(incidents)} new incident(s) detected at {self.format_central_time()}<br>
                     Source: Houston TranStar Traffic Management
                 </div>
                 
@@ -178,7 +191,7 @@ class EmailService:
                 <div class="footer">
                     <strong>Houston Traffic Monitor</strong><br>
                     Automated monitoring system for heavy truck incidents and hazmat spills<br>
-                    Data source: Houston TranStar | Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+                    Data source: Houston TranStar | Generated: {self.format_central_time()}
                 </div>
             </div>
         </body>
@@ -190,7 +203,7 @@ class EmailService:
     def create_text_email(self, incidents):
         """Create plain text email content for incidents"""
         text_content = f"""
-HOUSTON TRAFFIC ALERT - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+HOUSTON TRAFFIC ALERT - {self.format_central_time()}
 
 {len(incidents)} new heavy truck/hazmat incident(s) detected:
 
@@ -213,7 +226,7 @@ Google Maps: https://www.google.com/maps/search/?api=1&query={urllib.parse.quote
 
 Data Source: Houston TranStar Traffic Management
 System: Houston Traffic Monitor
-Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+Generated: {self.format_central_time()}
         """
         
         return text_content
@@ -288,15 +301,15 @@ Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         try:
             subject = "🧪 Houston Traffic Monitor - Test Email"
             
-            html_content = """
+            html_content = f"""
             <!DOCTYPE html>
             <html>
             <head>
                 <meta charset="UTF-8">
                 <style>
-                    body { font-family: Arial, sans-serif; margin: 20px; }
-                    .container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; }
-                    .header { text-align: center; color: #007bff; margin-bottom: 20px; }
+                    body {{ font-family: Arial, sans-serif; margin: 20px; }}
+                    .container {{ max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; }}
+                    .header {{ text-align: center; color: #007bff; margin-bottom: 20px; }}
                 </style>
             </head>
             <body>
@@ -308,12 +321,12 @@ Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
                     </div>
                     <p>This is a test email to verify that your Houston Traffic Monitor email system is working correctly.</p>
                     <p><strong>System Status:</strong> ✅ Email service operational</p>
-                    <p><strong>Test Time:</strong> {}</p>
+                    <p><strong>Test Time:</strong> {self.format_central_time()}</p>
                     <p>You will receive alerts when heavy truck incidents or hazmat spills are detected in the Houston area.</p>
                 </div>
             </body>
             </html>
-            """.format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+            """
             
             text_content = f"""
 Houston Traffic Monitor - Test Email
@@ -321,7 +334,7 @@ Houston Traffic Monitor - Test Email
 This is a test email to verify that your Houston Traffic Monitor email system is working correctly.
 
 System Status: Email service operational
-Test Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+Test Time: {self.format_central_time()}
 
 You will receive alerts when heavy truck incidents or hazmat spills are detected in the Houston area.
             """
