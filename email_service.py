@@ -293,23 +293,18 @@ Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             <html>
             <head>
                 <meta charset="UTF-8">
-                <style>
-                    body { font-family: Arial, sans-serif; margin: 20px; }
-                    .container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; }
-                    .header { text-align: center; color: #007bff; margin-bottom: 20px; }
-                </style>
             </head>
-            <body>
-                <div class="container">
-                    <div class="header">
+            <body style="font-family: 'Arial', 'Helvetica', sans-serif; margin: 20px; padding: 0; background-color: #f5f5f5;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; background-color: #ffffff;">
+                    <div style="text-align: center; color: #007bff; margin-bottom: 20px;">
                         <img src="https://iili.io/FHbRMKu.png" alt="Houston Traffic Monitor Logo" style="max-width: 150px; height: auto; margin-bottom: 10px;"><br>
-                        <h2>Houston Traffic Monitor</h2>
-                        <h3>Test Email Successful!</h3>
+                        <h2 style="font-family: 'Arial', 'Helvetica', sans-serif; color: #007bff; margin-bottom: 10px;">Houston Traffic Monitor</h2>
+                        <h3 style="font-family: 'Arial', 'Helvetica', sans-serif; color: #007bff; margin-top: 0;">Test Email Successful!</h3>
                     </div>
-                    <p>This is a test email to verify that your Houston Traffic Monitor email system is working correctly.</p>
-                    <p><strong>System Status:</strong> ✅ Email service operational</p>
-                    <p><strong>Test Time:</strong> {}</p>
-                    <p>You will receive alerts when heavy truck incidents or hazmat spills are detected in the Houston area.</p>
+                    <p style="font-family: 'Arial', 'Helvetica', sans-serif; margin-bottom: 15px;">This is a test email to verify that your Houston Traffic Monitor email system is working correctly.</p>
+                    <p style="font-family: 'Arial', 'Helvetica', sans-serif; margin-bottom: 15px;"><strong>System Status:</strong> ✅ Email service operational</p>
+                    <p style="font-family: 'Arial', 'Helvetica', sans-serif; margin-bottom: 15px;"><strong>Test Time:</strong> {}</p>
+                    <p style="font-family: 'Arial', 'Helvetica', sans-serif; margin-bottom: 15px;">You will receive alerts when heavy truck incidents or hazmat spills are detected in the Houston area.</p>
                 </div>
             </body>
             </html>
