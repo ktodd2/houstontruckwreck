@@ -3,10 +3,7 @@ services:
     name: houston-traffic-monitor
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: |
-      mkdir -p /data
-      chmod 777 /data
-      gunicorn wsgi:app
+    startCommand: gunicorn wsgi:app
     envVars:
       - key: SECRET_KEY
         generateValue: true
@@ -28,7 +25,4 @@ services:
         value: true
       - key: RENDER
         value: true
-    disk:
-      name: data
-      mountPath: /data
-      sizeGB: 1
+    # No disk needed as we're using /tmp for the database
