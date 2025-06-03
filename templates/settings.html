@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - Houston Traffic Monitor{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h2 mb-4">System Settings</h1>
+    
+    <div class="row">
+        <!-- System Configuration -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">System Configuration</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">Scrape Interval</h6>
+                                <span class="badge bg-primary">{{ scrape_interval }} seconds</span>
+                            </div>
+                            <p class="mb-1 text-muted small">How often the system checks TranStar for new incidents.</p>
+                        </div>
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">Max Alerts Per Hour</h6>
+                                <span class="badge bg-primary">{{ max_alerts_per_hour }}</span>
+                            </div>
+                            <p class="mb-1 text-muted small">Maximum number of email alerts that can be sent per hour.</p>
+                        </div>
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">Email Configuration</h6>
+                                {% if email_configured %}
+                                    <span class="badge bg-success">Configured</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Not Configured</span>
+                                {% endif %}
+                            </div>
+                            <p class="mb-1 text-muted small">
+                                {% if email_configured %}
+                                    Email credentials are properly configured.
+                                {% else %}
+                                    Email credentials are missing. Set EMAIL_USERNAME and EMAIL_PASSWORD environment variables.
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer text-muted">
+                    <small>To change these settings, update environment variables and restart the application.</small>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Alert Filtering -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Alert Filtering</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6>Heavy Truck Stall Alerts</h6>
+                            <div>
+                                {% if include_stalls %}
+                                    <span class="badge bg-success mb-2">Enabled</span>
+                                {% else %}
+                                    <span class="badge bg-secondary mb-2">Disabled</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <p class="text-muted small mb-3">
+                            When enabled, alerts will be sent for heavy truck stalls and disabled vehicles.
+                            When disabled, only accidents, hazmat spills, and other high-priority incidents will trigger alerts.
+                        </p>
+                        <form method="POST" action="{{ url_for('toggle_stalls') }}">
+                            <button type="submit" class="btn btn-primary">
+                                {% if include_stalls %}
+                                    <i class="fas fa-toggle-off me-1"></i> Disable Stall Alerts
+                                {% else %}
+                                    <i class="fas fa-toggle-on me-1"></i> Enable Stall Alerts
+                                {% endif %}
+                            </button>
+                        </form>
+                    </div>
+                    <hr>
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-info-circle me-2"></i> Always Monitored</h6>
+                        <ul class="mb-0">
+                            <li>Heavy truck accidents & crashes</li>
+                            <li>Hazmat spills & chemical leaks</li>
+                            <li>Rollover incidents</li>
+                            <li>Multi-vehicle accidents involving trucks</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- System Information -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">System Information</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <h6>About Houston Traffic Monitor</h6>
+                        <p class="text-muted">
+                            A real-time traffic monitoring system that scrapes Houston TranStar for heavy truck incidents
+                            and hazmat spills, sending professional email alerts with custom branding.
+                        </p>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <h6>System Status</h6>
+                        <div class="list-group">
+                            <div class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <span>Database</span>
+                                    <span class="badge bg-success">Connected</span>
+                                </div>
+                            </div>
+                            <div class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <span>Scraper</span>
+                                    {% if scraper_running %}
+                                        <span class="badge bg-success">Running</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Stopped</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

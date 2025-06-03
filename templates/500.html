@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}500 Server Error - Houston Traffic Monitor{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            <div class="card shadow">
+                <div class="card-body p-5">
+                    <h1 class="display-1 text-danger">500</h1>
+                    <h2 class="mb-4">Internal Server Error</h2>
+                    <p class="lead mb-4">Something went wrong on our end. Our team has been notified and we're working to fix the issue.</p>
+                    <div class="mb-4">
+                        <i class="fas fa-exclamation-triangle fa-3x text-warning"></i>
+                    </div>
+                    <a href="{{ url_for('index') }}" class="btn btn-primary">
+                        <i class="fas fa-home me-2"></i> Return to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
