@@ -62,16 +62,13 @@ python -c "from models import Database, Settings; db = Database(); print('Includ
 ### 3. **Test Current Detection**
 ```bash
 cd houstontruckwreck-main
-python test_incident_detection.py
 ```
 
 ### 4. **Update Scraper**
-Replace your current scraper with the improved version:
-```bash
-cd houstontruckwreck-main
-cp scraper.py scraper_backup.py
-cp improved_scraper.py scraper.py
-```
+✅ **COMPLETED**: The improved scraper is now active as the main scraper.
+- Old scraper backed up as `scraper_old.py`
+- Improved scraper functionality now in `scraper.py`
+- All imports updated to use the enhanced version
 
 ## Long-term Recommendations
 
