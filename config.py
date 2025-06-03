@@ -5,7 +5,12 @@ load_dotenv()
 
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
-    DATABASE_PATH = 'database.db'
+    
+    # Use /data directory for database in production (Render disk mount)
+    if os.environ.get('RENDER'):
+        DATABASE_PATH = '/data/database.db'
+    else:
+        DATABASE_PATH = 'database.db'
     
     # Email configuration
     EMAIL_HOST = 'smtp.gmail.com'

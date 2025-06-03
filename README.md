@@ -205,6 +205,18 @@ python start_app.py
 
 ### Production Deployment
 
+**Render:**
+1. Create a new Web Service on Render
+2. Connect your GitHub repository
+3. Render will automatically detect the configuration from `render.yaml`
+4. Set the following environment variables in the Render dashboard:
+   - `EMAIL_USERNAME`: Your Gmail address
+   - `EMAIL_PASSWORD`: Your Gmail app password
+   - `EMAIL_FROM`: Your from email address (optional)
+   - `ADMIN_PASSWORD`: Secure password for admin login
+5. Deploy the service
+6. Your application will be available at `https://your-service-name.onrender.com`
+
 **Heroku:**
 ```bash
 # Install Heroku CLI
