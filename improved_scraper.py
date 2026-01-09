@@ -4,6 +4,7 @@ import re
 import logging
 import json
 from datetime import datetime
+import pytz
 from models import Incident, Database
 from config import Config
 import time
@@ -30,6 +31,12 @@ class ImprovedTranStarScraper:
             'Origin': 'https://traffic.houstontranstar.org'
         })
         self.db = Database()
+        # Set up Central Time timezone
+        self.central_tz = pytz.timezone('America/Chicago')
+    
+    def get_central_time_now(self):
+        """Get current time in Central Time"""
+        return datetime.now(self.central_tz)
     
     def is_relevant_incident(self, incident_data):
         """Check if incident involves heavy trucks or hazmat spills"""
@@ -229,7 +236,7 @@ class ImprovedTranStarScraper:
             if time_str:
                 incident_time = self.parse_time_string(time_str)
             else:
-                incident_time = datetime.now().strftime("%I:%M %p")
+                incident_time = self.get_central_time_now().strftime("%I:%M %p")
             
             # Calculate severity
             severity = self.calculate_severity(f"{location} {description}")
@@ -329,7 +336,7 @@ class ImprovedTranStarScraper:
     def parse_time_string(self, time_str):
         """Parse various time string formats"""
         if not time_str:
-            return datetime.now().strftime("%I:%M %p")
+            return self.get_central_time_now().strftime("%I:%M %p")
         
         # Handle "Verified at 3:16 PM" format
         time_match = re.search(r'(\d{1,2}:\d{2}\s*[APap][Mm])', time_str)
@@ -345,12 +352,12 @@ class ImprovedTranStarScraper:
             except:
                 pass
         
-        return datetime.now().strftime("%I:%M %p")
+        return self.get_central_time_now().strftime("%I:%M %p")
     
     def extract_time_from_status(self, status):
         """Extract time from status string like 'Verified at 3:16 PM'"""
         if not status:
-            return datetime.now().strftime("%I:%M %p")
+            return self.get_central_time_now().strftime("%I:%M %p")
         
         # Look for time patterns
         time_patterns = [
@@ -373,7 +380,7 @@ class ImprovedTranStarScraper:
                     except:
                         pass
         
-        return datetime.now().strftime("%I:%M %p")
+        return self.get_central_time_now().strftime("%I:%M %p")
     
     def calculate_severity(self, description):
         """Calculate incident severity (1-5, higher = more urgent)"""

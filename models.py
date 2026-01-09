@@ -2,6 +2,7 @@ import sqlite3
 import hashlib
 import os
 from datetime import datetime
+import pytz
 from werkzeug.security import generate_password_hash, check_password_hash
 from config import Config
 
@@ -99,6 +100,21 @@ class Database:
                 ('include_stalls', 'true')
             )
         
+        # Add default subscribers if they don't exist
+        default_subscribers = [
+            'ktoddizzle@icloud.com',
+            'branhar01@gmail.com'
+        ]
+        
+        for email in default_subscribers:
+            cursor.execute('SELECT COUNT(*) FROM subscribers WHERE email = ?', (email,))
+            if cursor.fetchone()[0] == 0:
+                cursor.execute(
+                    'INSERT INTO subscribers (email, active) VALUES (?, 1)',
+                    (email,)
+                )
+                print(f"Added default subscriber: {email}")
+        
         conn.commit()
         conn.close()
 
@@ -145,7 +161,9 @@ class Incident:
     def __init__(self, location, description, incident_time=None, severity=1):
         self.location = location
         self.description = description
-        self.incident_time = incident_time or datetime.now().strftime('%H:%M')
+        # Use Central Time for incident time
+        central_tz = pytz.timezone('America/Chicago')
+        self.incident_time = incident_time or datetime.now(central_tz).strftime('%I:%M %p')
         self.severity = severity
         self.incident_hash = self._generate_hash()
     
