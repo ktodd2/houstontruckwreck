@@ -2,11 +2,15 @@ import smtplib
 import ssl
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from datetime import datetime
+from email.mime.base import MIMEBase
+from email import encoders
+from datetime import datetime, timedelta
 import pytz
 import logging
 import urllib.parse
-from models import Database, Subscriber, SentAlert
+import csv
+import io
+from models import Database, Subscriber, SentAlert, Incident
 from config import Config
 
 logger = logging.getLogger(__name__)
@@ -358,6 +362,350 @@ You will receive alerts when heavy truck incidents or hazmat spills are detected
             
         except Exception as e:
             logger.error(f"❌ Failed to send test email: {e}")
+            return False
+    
+    def generate_csv_data(self, incidents):
+        """Generate CSV data from incidents"""
+        output = io.StringIO()
+        csv_writer = csv.writer(output)
+        
+        # Write header
+        csv_writer.writerow(['Date', 'Time', 'Location', 'Description', 'Severity', 'Scraped At'])
+        
+        # Write incident data
+        for incident in incidents:
+            # Parse scraped_at timestamp
+            scraped_at = incident['scraped_at']
+            
+            csv_writer.writerow([
+                scraped_at.split()[0] if ' ' in scraped_at else scraped_at,  # Date
+                incident['incident_time'],  # Time
+                incident['location'],  # Location
+                incident['description'],  # Description
+                'High' if incident['severity'] >= 4 else 'Medium' if incident['severity'] >= 3 else 'Low',  # Severity
+                scraped_at  # Scraped At
+            ])
+        
+        return output.getvalue()
+    
+    def create_daily_summary_html(self, incidents_data, date_str):
+        """Create HTML email content for daily summary"""
+        
+        total_incidents = len(incidents_data)
+        
+        # Categorize incidents
+        wrecks = [i for i in incidents_data if 'accident' in i['description'].lower() or 'crash' in i['description'].lower() or 'wreck' in i['description'].lower()]
+        stalls = [i for i in incidents_data if 'stall' in i['description'].lower()]
+        spills = [i for i in incidents_data if 'spill' in i['description'].lower() or 'hazmat' in i['description'].lower()]
+        other = [i for i in incidents_data if i not in wrecks and i not in stalls and i not in spills]
+        
+        # Create incident table HTML
+        table_rows = ""
+        for incident in incidents_data:
+            # Color coding based on severity
+            if incident['severity'] >= 4:
+                bg_color = "#ffcccc"  # Red for high severity
+            elif incident['severity'] >= 3:
+                bg_color = "#ffe6cc"  # Orange for medium severity
+            else:
+                bg_color = "#ffffff"  # White for low severity
+            
+            # Create Google Maps link
+            location_query = urllib.parse.quote(f"{incident['location']} Houston TX")
+            maps_link = f"https://www.google.com/maps/search/?api=1&query={location_query}"
+            
+            # Determine incident type icon
+            if 'accident' in incident['description'].lower() or 'crash' in incident['description'].lower() or 'wreck' in incident['description'].lower():
+                icon = "🚗💥"
+            elif 'stall' in incident['description'].lower():
+                icon = "🚛"
+            elif 'spill' in incident['description'].lower() or 'hazmat' in incident['description'].lower():
+                icon = "☣️"
+            else:
+                icon = "⚠️"
+            
+            table_rows += f"""
+            <tr style="background-color: {bg_color};">
+                <td style="padding: 12px; border: 1px solid #ddd; text-align: center;">{icon}</td>
+                <td style="padding: 12px; border: 1px solid #ddd;">
+                    <a href="{maps_link}" target="_blank" style="color: #007bff; text-decoration: none;">
+                        {incident['location']}
+                    </a>
+                </td>
+                <td style="padding: 12px; border: 1px solid #ddd;">{incident['description']}</td>
+                <td style="padding: 12px; border: 1px solid #ddd;">{incident['incident_time']}</td>
+            </tr>
+            """
+        
+        # Create full HTML email
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Houston Traffic Daily Summary</title>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    margin: 0;
+                    padding: 20px;
+                    background-color: #f5f5f5;
+                }}
+                .container {{
+                    max-width: 900px;
+                    margin: 0 auto;
+                    background-color: white;
+                    padding: 30px;
+                    border-radius: 10px;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                }}
+                .header {{
+                    text-align: center;
+                    margin-bottom: 30px;
+                    padding-bottom: 20px;
+                    border-bottom: 3px solid #007bff;
+                }}
+                .logo {{
+                    font-size: 28px;
+                    font-weight: bold;
+                    color: #007bff;
+                    margin-bottom: 10px;
+                }}
+                .summary-box {{
+                    display: flex;
+                    justify-content: space-around;
+                    margin: 20px 0;
+                    flex-wrap: wrap;
+                }}
+                .summary-item {{
+                    text-align: center;
+                    padding: 20px;
+                    margin: 10px;
+                    background-color: #f8f9fa;
+                    border-radius: 8px;
+                    min-width: 150px;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+                }}
+                .summary-number {{
+                    font-size: 36px;
+                    font-weight: bold;
+                    color: #007bff;
+                }}
+                .summary-label {{
+                    font-size: 14px;
+                    color: #666;
+                    margin-top: 5px;
+                }}
+                table {{
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin: 25px 0;
+                }}
+                th {{
+                    background-color: #007bff;
+                    color: white;
+                    padding: 12px;
+                    text-align: left;
+                    border: 1px solid #0056b3;
+                    font-weight: bold;
+                }}
+                td {{
+                    padding: 12px;
+                    border: 1px solid #ddd;
+                }}
+                .footer {{
+                    text-align: center;
+                    margin-top: 30px;
+                    padding-top: 20px;
+                    border-top: 2px solid #eee;
+                    font-size: 12px;
+                    color: #666;
+                }}
+                .no-incidents {{
+                    text-align: center;
+                    padding: 40px;
+                    font-size: 18px;
+                    color: #28a745;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <img src="https://iili.io/FHbRMKu.png" alt="Houston Traffic Monitor Logo" style="max-width: 200px; height: auto; margin-bottom: 10px;"><br>
+                    <div class="logo">📊 Daily Traffic Summary</div>
+                    <div style="font-size: 18px; color: #666;">Houston Heavy Truck & Hazmat Incidents</div>
+                    <div style="font-size: 14px; color: #999; margin-top: 10px;">{date_str}</div>
+                </div>
+                
+                <div class="summary-box">
+                    <div class="summary-item">
+                        <div class="summary-number">{total_incidents}</div>
+                        <div class="summary-label">Total Incidents</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-number" style="color: #dc3545;">{len(wrecks)}</div>
+                        <div class="summary-label">🚗 Wrecks/Accidents</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-number" style="color: #ffc107;">{len(stalls)}</div>
+                        <div class="summary-label">🚛 Stalls</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-number" style="color: #ff6b6b;">{len(spills)}</div>
+                        <div class="summary-label">☣️ Hazmat/Spills</div>
+                    </div>
+                </div>
+                
+                {"<div class='no-incidents'>✅ Great news! No incidents were reported today.</div>" if total_incidents == 0 else f'''
+                <h3 style="color: #007bff; border-bottom: 2px solid #e9ecef; padding-bottom: 10px;">Detailed Incident Report</h3>
+                <p style="color: #666; font-size: 14px;">See attached CSV file for complete data that can be imported into spreadsheets.</p>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="text-align: center;">Type</th>
+                            <th>📍 Location</th>
+                            <th>📝 Description</th>
+                            <th>🕐 Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {table_rows}
+                    </tbody>
+                </table>
+                '''}
+                
+                <div class="footer">
+                    <strong>Houston Traffic Monitor</strong><br>
+                    Daily automated summary of heavy truck incidents and hazmat spills<br>
+                    Data source: Houston TranStar Traffic Management<br>
+                    Report generated: {self.format_central_time()}<br>
+                    <br>
+                    <em>This is an automated daily report sent at midnight CST</em>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        return html_content
+    
+    def send_daily_summary(self, target_email="ktoddllc1@gmail.com"):
+        """Send daily summary email at midnight with CSV attachment"""
+        try:
+            # Get yesterday's date (since this runs at midnight)
+            yesterday = self.get_central_time() - timedelta(days=1)
+            date_str = yesterday.strftime('%B %d, %Y')  # e.g., "January 7, 2026"
+            
+            # Get incidents from the past 24 hours
+            incidents = Incident.get_recent(self.db, hours=24)
+            
+            # Convert to list of dicts for easier processing
+            incidents_data = []
+            for incident in incidents:
+                incidents_data.append({
+                    'id': incident['id'],
+                    'location': incident['location'],
+                    'description': incident['description'],
+                    'incident_time': incident['incident_time'],
+                    'scraped_at': incident['scraped_at'],
+                    'severity': incident['severity']
+                })
+            
+            total_count = len(incidents_data)
+            
+            # Create email subject
+            if total_count == 0:
+                subject = f"📊 Daily Summary - {date_str} - No Incidents ✅"
+            else:
+                subject = f"📊 Daily Summary - {date_str} - {total_count} Incident{'s' if total_count != 1 else ''}"
+            
+            # Create HTML content
+            html_content = self.create_daily_summary_html(incidents_data, date_str)
+            
+            # Create text content
+            text_content = f"""
+HOUSTON TRAFFIC MONITOR - DAILY SUMMARY
+{date_str}
+{'=' * 60}
+
+Total Incidents: {total_count}
+
+"""
+            
+            if total_count > 0:
+                for i, incident in enumerate(incidents_data, 1):
+                    text_content += f"""
+Incident #{i}:
+Location: {incident['location']}
+Description: {incident['description']}
+Time: {incident['incident_time']}
+Scraped: {incident['scraped_at']}
+
+{'-' * 60}
+"""
+            else:
+                text_content += "✅ Great news! No incidents were reported today.\n\n"
+            
+            text_content += f"""
+
+Data Source: Houston TranStar Traffic Management
+System: Houston Traffic Monitor
+Report Generated: {self.format_central_time()}
+
+This is an automated daily report sent at midnight CST.
+            """
+            
+            # Create email message
+            msg = MIMEMultipart("mixed")
+            msg["Subject"] = subject
+            msg["From"] = self.from_email
+            msg["To"] = target_email
+            
+            # Create alternative part for text and HTML
+            msg_alternative = MIMEMultipart("alternative")
+            msg_alternative.attach(MIMEText(text_content, "plain"))
+            msg_alternative.attach(MIMEText(html_content, "html"))
+            msg.attach(msg_alternative)
+            
+            # Attach CSV file if there are incidents
+            if total_count > 0:
+                csv_data = self.generate_csv_data(incidents)
+                
+                csv_attachment = MIMEBase('text', 'csv')
+                csv_attachment.set_payload(csv_data.encode('utf-8'))
+                encoders.encode_base64(csv_attachment)
+                
+                # Create filename with date
+                csv_filename = f"houston_traffic_incidents_{yesterday.strftime('%Y-%m-%d')}.csv"
+                csv_attachment.add_header('Content-Disposition', f'attachment; filename="{csv_filename}"')
+                msg.attach(csv_attachment)
+            
+            # Validate email configuration
+            if not all([self.username, self.password, self.from_email]):
+                logger.error("Email configuration incomplete")
+                return False
+            
+            # Send email
+            context = ssl.create_default_context()
+            with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
+                server.starttls(context=context)
+                server.login(self.username, self.password)
+                server.send_message(msg)
+            
+            logger.info(f"✅ Daily summary sent successfully to {target_email} - {total_count} incidents")
+            return True
+            
+        except smtplib.SMTPAuthenticationError:
+            logger.error("❌ Email authentication failed - check username/password")
+            return False
+        except smtplib.SMTPException as e:
+            logger.error(f"❌ SMTP error: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"❌ Unexpected error sending daily summary: {e}")
             return False
 
 def test_email_service():
