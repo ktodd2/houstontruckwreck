@@ -85,6 +85,11 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link {% if request.path == '/hazmat_subscribers' %}active{% endif %}" href="{{ url_for('hazmat_subscribers') }}">
+                                <i class="fas fa-biohazard me-2"></i> Hazmat Alerts
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link {% if request.path == '/settings' %}active{% endif %}" href="{{ url_for('settings') }}">
                                 <i class="fas fa-cog me-2"></i> Settings
                             </a>

@@ -10,7 +10,7 @@ import logging
 import urllib.parse
 import csv
 import io
-from models import Database, Subscriber, SentAlert, Incident
+from models import Database, Subscriber, HazmatSubscriber, SentAlert, Incident
 from config import Config
 
 logger = logging.getLogger(__name__)
@@ -298,6 +298,226 @@ Generated: {self.format_central_time()}
             return False
         except Exception as e:
             logger.error(f"❌ Unexpected error sending email: {e}")
+            return False
+    
+    def send_hazmat_alert(self, incidents):
+        """Send email alert for hazmat/spill incidents only to hazmat subscribers"""
+        if not incidents:
+            logger.info("No hazmat incidents to send alerts for")
+            return False
+        
+        # Filter for only hazmat/spill incidents
+        hazmat_incidents = []
+        for incident, incident_id in incidents:
+            desc_lower = incident.description.lower()
+            if 'hazmat' in desc_lower or 'spill' in desc_lower:
+                hazmat_incidents.append((incident, incident_id))
+        
+        if not hazmat_incidents:
+            logger.info("No hazmat/spill incidents found")
+            return False
+        
+        # Get active hazmat subscribers
+        hazmat_subscribers = HazmatSubscriber.get_all_active(self.db)
+        if not hazmat_subscribers:
+            logger.info("No active hazmat subscribers to send alerts to")
+            return False
+        
+        # Validate email configuration
+        if not all([self.username, self.password, self.from_email]):
+            logger.error("Email configuration incomplete")
+            return False
+        
+        try:
+            # Create email content with hazmat-specific branding
+            subject = f"☣️ HAZMAT ALERT: {len(hazmat_incidents)} Spill/Hazmat Incident{'s' if len(hazmat_incidents) != 1 else ''} in Houston!"
+            
+            # Create incident table HTML
+            table_rows = ""
+            for incident, incident_id in hazmat_incidents:
+                bg_color = "#ffcccc"  # Red for hazmat incidents
+                location_query = urllib.parse.quote(f"{incident.location} Houston TX")
+                maps_link = f"https://www.google.com/maps/search/?api=1&query={location_query}"
+                
+                table_rows += f"""
+                <tr style="background-color: {bg_color};">
+                    <td style="padding: 12px; border: 1px solid #ddd;">
+                        <a href="{maps_link}" target="_blank" style="color: #007bff; text-decoration: none;">
+                            {incident.location}
+                        </a>
+                    </td>
+                    <td style="padding: 12px; border: 1px solid #ddd;">{incident.description}</td>
+                    <td style="padding: 12px; border: 1px solid #ddd;">{incident.incident_time}</td>
+                </tr>
+                """
+            
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Houston Hazmat Alert</title>
+                <style>
+                    body {{
+                        font-family: Arial, sans-serif;
+                        margin: 0;
+                        padding: 20px;
+                        background-color: #f5f5f5;
+                    }}
+                    .container {{
+                        max-width: 800px;
+                        margin: 0 auto;
+                        background-color: white;
+                        padding: 20px;
+                        border-radius: 10px;
+                        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                    }}
+                    .header {{
+                        text-align: center;
+                        margin-bottom: 20px;
+                        padding-bottom: 15px;
+                        border-bottom: 3px solid #dc3545;
+                    }}
+                    .logo {{
+                        font-size: 24px;
+                        font-weight: bold;
+                        color: #dc3545;
+                        margin-bottom: 10px;
+                    }}
+                    .alert-info {{
+                        background-color: #fff3cd;
+                        padding: 15px;
+                        border-radius: 5px;
+                        margin-bottom: 20px;
+                        border-left: 4px solid #dc3545;
+                    }}
+                    table {{
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin: 20px 0;
+                    }}
+                    th {{
+                        background-color: #dc3545;
+                        color: white;
+                        padding: 12px;
+                        text-align: left;
+                        border: 1px solid #bd2130;
+                        font-weight: bold;
+                    }}
+                    td {{
+                        padding: 12px;
+                        border: 1px solid #ddd;
+                    }}
+                    .footer {{
+                        text-align: center;
+                        margin-top: 30px;
+                        padding-top: 20px;
+                        border-top: 1px solid #eee;
+                        font-size: 12px;
+                        color: #666;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <img src="https://iili.io/FHbRMKu.png" alt="Houston Traffic Monitor Logo" style="max-width: 200px; height: auto; margin-bottom: 10px;"><br>
+                        <div class="logo">☣️ HAZMAT ALERT SYSTEM</div>
+                        <div>Hazardous Material & Spill Monitoring</div>
+                    </div>
+                    
+                    <div class="alert-info">
+                        <strong>⚠️ CRITICAL HAZMAT ALERT:</strong><br>
+                        {len(hazmat_incidents)} hazmat/spill incident(s) detected at {self.format_central_time()}<br>
+                        <strong>Immediate attention required</strong><br>
+                        Source: Houston TranStar Traffic Management
+                    </div>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>📍 Location</th>
+                                <th>📝 Description</th>
+                                <th>🕐 Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {table_rows}
+                        </tbody>
+                    </table>
+                    
+                    <div class="footer">
+                        <strong>Houston Traffic Monitor - Hazmat Alert System</strong><br>
+                        Specialized monitoring for hazardous material spills and incidents<br>
+                        Data source: Houston TranStar | Generated: {self.format_central_time()}<br>
+                        <br>
+                        <em>You are receiving this because you subscribed to hazmat-only alerts</em>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+            
+            # Create text version
+            text_content = f"""
+HOUSTON HAZMAT ALERT - {self.format_central_time()}
+
+⚠️ CRITICAL: {len(hazmat_incidents)} hazmat/spill incident(s) detected:
+
+"""
+            
+            for i, (incident, incident_id) in enumerate(hazmat_incidents, 1):
+                text_content += f"""
+Hazmat Incident #{i}:
+Location: {incident.location}
+Description: {incident.description}
+Time: {incident.incident_time}
+Google Maps: https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(f"{incident.location} Houston TX")}
+
+{'-' * 60}
+"""
+            
+            text_content += f"""
+
+Data Source: Houston TranStar Traffic Management
+System: Houston Traffic Monitor - Hazmat Alert System
+Generated: {self.format_central_time()}
+
+You are receiving this because you subscribed to hazmat-only alerts.
+            """
+            
+            # Create email message
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = subject
+            msg["From"] = self.from_email
+            msg["To"] = ", ".join(hazmat_subscribers)
+            
+            # Attach both text and HTML versions
+            text_part = MIMEText(text_content, "plain")
+            html_part = MIMEText(html_content, "html")
+            
+            msg.attach(text_part)
+            msg.attach(html_part)
+            
+            # Send email
+            context = ssl.create_default_context()
+            with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
+                server.starttls(context=context)
+                server.login(self.username, self.password)
+                server.send_message(msg)
+            
+            logger.info(f"Hazmat alert sent successfully to {len(hazmat_subscribers)} hazmat subscribers for {len(hazmat_incidents)} incidents")
+            return True
+            
+        except smtplib.SMTPAuthenticationError:
+            logger.error("Email authentication failed - check username/password")
+            return False
+        except smtplib.SMTPException as e:
+            logger.error(f"SMTP error: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error sending hazmat email: {e}")
             return False
     
     def send_test_email(self, test_email):
