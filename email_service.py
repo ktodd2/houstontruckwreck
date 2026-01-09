@@ -10,6 +10,8 @@ import logging
 import urllib.parse
 import csv
 import io
+import base64
+import os
 from models import Database, Subscriber, HazmatSubscriber, SentAlert, Incident
 from config import Config
 
@@ -25,6 +27,23 @@ class EmailService:
         self.from_email = Config.EMAIL_FROM
         # Set up Central Time timezone
         self.central_tz = pytz.timezone('America/Chicago')
+        # Load and encode logo image
+        self.logo_base64 = self._load_logo()
+    
+    def _load_logo(self):
+        """Load and encode the logo image as base64"""
+        try:
+            logo_path = os.path.join(os.path.dirname(__file__), 'truckwreck.png')
+            if os.path.exists(logo_path):
+                with open(logo_path, 'rb') as image_file:
+                    encoded_string = base64.b64encode(image_file.read()).decode()
+                return f"data:image/png;base64,{encoded_string}"
+            else:
+                logger.warning(f"Logo file not found at {logo_path}")
+                return ""
+        except Exception as e:
+            logger.error(f"Error loading logo: {e}")
+            return ""
     
     def get_central_time(self):
         """Get current time in Central Time"""
@@ -160,7 +179,7 @@ class EmailService:
         <body>
             <div class="container">
                 <div class="header">
-                    <img src="https://freeimage.host/i/fkqNPtt" alt="Houston Traffic Monitor Logo" style="max-width: 200px; height: auto; margin-bottom: 10px;"><br>
+                    <img src="{self.logo_base64}" alt="Houston Traffic Monitor Logo" style="max-width: 200px; height: auto; margin-bottom: 10px;"><br>
                     <div class="logo">Houston Traffic Monitor</div>
                     <div>Heavy Truck & Hazmat Incident Alert System</div>
                 </div>
@@ -422,7 +441,7 @@ Generated: {self.format_central_time()}
             <body>
                 <div class="container">
                     <div class="header">
-                        <img src="https://freeimage.host/i/fkqNPtt" alt="Houston Traffic Monitor Logo" style="max-width: 200px; height: auto; margin-bottom: 10px;"><br>
+                        <img src="{self.logo_base64}" alt="Houston Traffic Monitor Logo" style="max-width: 200px; height: auto; margin-bottom: 10px;"><br>
                         <div class="logo">☣️ HAZMAT ALERT SYSTEM</div>
                         <div>Hazardous Material & Spill Monitoring</div>
                     </div>
@@ -539,7 +558,7 @@ You are receiving this because you subscribed to hazmat-only alerts.
             <body>
                 <div class="container">
                     <div class="header">
-                        <img src="https://freeimage.host/i/fkqNPtt" alt="Houston Traffic Monitor Logo" style="max-width: 150px; height: auto; margin-bottom: 10px;"><br>
+                        <img src="{self.logo_base64}" alt="Houston Traffic Monitor Logo" style="max-width: 150px; height: auto; margin-bottom: 10px;"><br>
                         <h2>Houston Traffic Monitor</h2>
                         <h3>Test Email Successful!</h3>
                     </div>
@@ -753,7 +772,7 @@ You will receive alerts when heavy truck incidents or hazmat spills are detected
         <body>
             <div class="container">
                 <div class="header">
-                    <img src="https://freeimage.host/i/fkqNPtt" alt="Houston Traffic Monitor Logo" style="max-width: 200px; height: auto; margin-bottom: 10px;"><br>
+                    <img src="{self.logo_base64}" alt="Houston Traffic Monitor Logo" style="max-width: 200px; height: auto; margin-bottom: 10px;"><br>
                     <div class="logo">📊 Daily Traffic Summary</div>
                     <div style="font-size: 18px; color: #666;">Houston Heavy Truck & Hazmat Incidents</div>
                     <div style="font-size: 14px; color: #999; margin-top: 10px;">{date_str}</div>
