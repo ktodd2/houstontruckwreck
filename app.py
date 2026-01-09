@@ -8,6 +8,8 @@ import atexit
 import logging
 from datetime import datetime, timedelta
 import re
+from collections import deque
+import pytz
 
 from config import Config
 from models import Database, Incident, Subscriber, HazmatSubscriber, AdminUser, SentAlert, Settings
@@ -17,6 +19,26 @@ from email_service import EmailService
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# In-memory circular buffer for scraping logs (keeps last 100 log entries)
+scrape_logs = deque(maxlen=100)
+central_tz = pytz.timezone('America/Chicago')
+
+def add_scrape_log(message, level='info'):
+    """Add a log entry with timestamp"""
+    timestamp = datetime.now(central_tz).strftime('%Y-%m-%d %I:%M:%S %p CST')
+    scrape_logs.append({
+        'timestamp': timestamp,
+        'message': message,
+        'level': level
+    })
+    # Also log to regular logger
+    if level == 'error':
+        logger.error(message)
+    elif level == 'warning':
+        logger.warning(message)
+    else:
+        logger.info(message)
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = Config.SECRET_KEY
@@ -50,28 +72,34 @@ scheduler = BackgroundScheduler()
 def scheduled_scrape():
     """Background task to scrape for incidents"""
     try:
-        logger.info("Running scheduled scrape...")
+        add_scrape_log("🔄 Starting scheduled scrape...")
         new_incidents = scraper.run_scrape_cycle()
         
         if new_incidents:
-            logger.info(f"Found {len(new_incidents)} new incidents, sending alerts...")
+            add_scrape_log(f"✅ Found {len(new_incidents)} new incidents!", 'info')
+            
+            # Log incident details
+            for incident, incident_id in new_incidents:
+                add_scrape_log(f"📍 {incident.location}: {incident.description}")
+            
+            add_scrape_log("📧 Sending alerts to subscribers...")
             
             # Send regular alerts to all subscribers
             success = email_service.send_alert(new_incidents)
             if success:
-                logger.info("✅ Regular alerts sent successfully")
+                add_scrape_log("✅ Regular alerts sent successfully", 'info')
             else:
-                logger.error("❌ Failed to send regular alerts")
+                add_scrape_log("❌ Failed to send regular alerts", 'error')
             
             # Send hazmat-specific alerts to hazmat subscribers
             hazmat_success = email_service.send_hazmat_alert(new_incidents)
             if hazmat_success:
-                logger.info("✅ Hazmat alerts sent successfully")
+                add_scrape_log("✅ Hazmat alerts sent successfully", 'info')
         else:
-            logger.info("No new incidents found")
+            add_scrape_log("ℹ️  No new incidents found")
             
     except Exception as e:
-        logger.error(f"Error in scheduled scrape: {e}")
+        add_scrape_log(f"❌ Error in scheduled scrape: {e}", 'error')
 
 def send_daily_summary():
     """Background task to send daily summary email at midnight"""
@@ -303,18 +331,27 @@ def toggle_hazmat_subscriber():
 def manual_scrape():
     """Manually trigger a scrape"""
     try:
+        add_scrape_log("🔄 Manual scrape initiated by user")
         new_incidents = scraper.run_scrape_cycle()
         
         if new_incidents:
+            add_scrape_log(f"✅ Manual scrape found {len(new_incidents)} new incidents!")
+            for incident, incident_id in new_incidents:
+                add_scrape_log(f"📍 {incident.location}: {incident.description}")
+            
             success = email_service.send_alert(new_incidents)
             if success:
+                add_scrape_log("✅ Alerts sent successfully")
                 flash(f'Manual scrape completed! Found {len(new_incidents)} new incidents and sent alerts.', 'success')
             else:
+                add_scrape_log("❌ Failed to send alerts", 'error')
                 flash(f'Manual scrape found {len(new_incidents)} new incidents but failed to send alerts.', 'error')
         else:
+            add_scrape_log("ℹ️  Manual scrape: No new incidents found")
             flash('Manual scrape completed! No new incidents found.', 'info')
             
     except Exception as e:
+        add_scrape_log(f"❌ Manual scrape failed: {str(e)}", 'error')
         flash(f'Manual scrape failed: {str(e)}', 'error')
     
     return redirect(url_for('dashboard'))
@@ -400,6 +437,15 @@ def api_recent_incidents():
         })
     
     return jsonify(incidents_data)
+
+@app.route('/api/scrape_logs')
+@login_required
+def api_scrape_logs():
+    """API endpoint for scraping logs"""
+    # Return logs in reverse order (newest first)
+    logs_list = list(scrape_logs)
+    logs_list.reverse()
+    return jsonify(logs_list)
 
 @app.errorhandler(404)
 def not_found(error):

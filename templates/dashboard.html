@@ -72,6 +72,25 @@
         </div>
     </div>
 
+    <!-- Live Scraping Log -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">🔄 Live Scraping Log</h5>
+                    <span class="badge bg-success">Auto-refreshing</span>
+                </div>
+                <div class="card-body" style="max-height: 400px; overflow-y: auto; background-color: #1e1e1e; color: #d4d4d4; font-family: 'Courier New', monospace; font-size: 13px;">
+                    <div id="scrape-logs">
+                        <div class="text-center text-muted">
+                            <i class="fas fa-spinner fa-spin"></i> Loading logs...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Recent Incidents -->
     <div class="row">
         <div class="col-12">
@@ -120,7 +139,63 @@
 
 {% block scripts %}
 <script>
-    // Auto-refresh dashboard every 60 seconds
+    // Fetch and display scraping logs
+    function updateScrapeLogs() {
+        fetch('/api/scrape_logs')
+            .then(response => response.json())
+            .then(logs => {
+                const logsContainer = document.getElementById('scrape-logs');
+                
+                if (logs.length === 0) {
+                    logsContainer.innerHTML = '<div class="text-center text-muted">No logs available yet. Waiting for scraper activity...</div>';
+                    return;
+                }
+                
+                // Build HTML for logs
+                let html = '';
+                logs.forEach(log => {
+                    // Color based on log level
+                    let color = '#d4d4d4'; // default
+                    if (log.level === 'error') {
+                        color = '#f48771'; // red
+                    } else if (log.level === 'warning') {
+                        color = '#dcdcaa'; // yellow
+                    } else if (log.message.includes('✅')) {
+                        color = '#4ec9b0'; // green
+                    }
+                    
+                    html += `<div style="margin-bottom: 4px; color: ${color};">`;
+                    html += `<span style="color: #858585;">[${log.timestamp}]</span> `;
+                    html += `${escapeHtml(log.message)}`;
+                    html += '</div>';
+                });
+                
+                logsContainer.innerHTML = html;
+                
+                // Auto-scroll to bottom to show latest logs
+                logsContainer.parentElement.scrollTop = logsContainer.parentElement.scrollHeight;
+            })
+            .catch(error => {
+                console.error('Error fetching logs:', error);
+                document.getElementById('scrape-logs').innerHTML = 
+                    '<div class="text-center text-danger">Error loading logs</div>';
+            });
+    }
+    
+    // Escape HTML to prevent XSS
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Initial load
+    updateScrapeLogs();
+    
+    // Auto-refresh logs every 3 seconds
+    setInterval(updateScrapeLogs, 3000);
+    
+    // Auto-refresh entire dashboard every 60 seconds
     setTimeout(function() {
         location.reload();
     }, 60000);
