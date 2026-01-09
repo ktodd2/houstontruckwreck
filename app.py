@@ -3,6 +3,7 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 from werkzeug.security import check_password_hash
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.cron import CronTrigger
 import atexit
 import logging
 from datetime import datetime, timedelta
@@ -65,6 +66,20 @@ def scheduled_scrape():
     except Exception as e:
         logger.error(f"Error in scheduled scrape: {e}")
 
+def send_daily_summary():
+    """Background task to send daily summary email at midnight"""
+    try:
+        logger.info("🕛 Running daily summary task...")
+        success = email_service.send_daily_summary(target_email="ktoddllc1@gmail.com")
+        
+        if success:
+            logger.info("✅ Daily summary sent successfully")
+        else:
+            logger.error("❌ Failed to send daily summary")
+            
+    except Exception as e:
+        logger.error(f"Error in daily summary task: {e}")
+
 # Start the scheduler
 scheduler.add_job(
     func=scheduled_scrape,
@@ -73,6 +88,16 @@ scheduler.add_job(
     name='Scrape TranStar for incidents',
     replace_existing=True
 )
+
+# Add daily summary job - runs at midnight Central Time
+scheduler.add_job(
+    func=send_daily_summary,
+    trigger=CronTrigger(hour=0, minute=0, timezone='America/Chicago'),
+    id='daily_summary_job',
+    name='Send daily summary email at midnight',
+    replace_existing=True
+)
+
 scheduler.start()
 
 # Shut down the scheduler when exiting the app
@@ -232,6 +257,23 @@ def manual_scrape():
             
     except Exception as e:
         flash(f'Manual scrape failed: {str(e)}', 'error')
+    
+    return redirect(url_for('dashboard'))
+
+@app.route('/test_daily_summary', methods=['POST'])
+@login_required
+def test_daily_summary():
+    """Manually trigger daily summary email (for testing)"""
+    try:
+        success = email_service.send_daily_summary(target_email="ktoddllc1@gmail.com")
+        
+        if success:
+            flash('Daily summary email sent successfully to ktoddllc1@gmail.com!', 'success')
+        else:
+            flash('Failed to send daily summary email.', 'error')
+            
+    except Exception as e:
+        flash(f'Daily summary failed: {str(e)}', 'error')
     
     return redirect(url_for('dashboard'))
 
