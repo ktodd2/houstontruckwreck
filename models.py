@@ -53,6 +53,16 @@ class Database:
             )
         ''')
         
+        # Create hazmat_subscribers table (for hazmat/spill-only alerts)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS hazmat_subscribers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT UNIQUE NOT NULL,
+                active BOOLEAN DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
         # Create sent_alerts table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS sent_alerts (
@@ -291,6 +301,68 @@ class Subscriber:
         cursor = conn.cursor()
         
         cursor.execute('UPDATE subscribers SET active = NOT active WHERE email = ?', (email,))
+        affected = cursor.rowcount
+        conn.commit()
+        conn.close()
+        return affected > 0
+
+class HazmatSubscriber:
+    @staticmethod
+    def add(db, email):
+        """Add new hazmat subscriber"""
+        conn = db.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute('INSERT INTO hazmat_subscribers (email) VALUES (?)', (email,))
+            conn.commit()
+            conn.close()
+            return True
+        except sqlite3.IntegrityError:
+            conn.close()
+            return False
+    
+    @staticmethod
+    def remove(db, email):
+        """Remove hazmat subscriber"""
+        conn = db.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('DELETE FROM hazmat_subscribers WHERE email = ?', (email,))
+        affected = cursor.rowcount
+        conn.commit()
+        conn.close()
+        return affected > 0
+    
+    @staticmethod
+    def get_all_active(db):
+        """Get all active hazmat subscribers"""
+        conn = db.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT email FROM hazmat_subscribers WHERE active = 1')
+        subscribers = [row[0] for row in cursor.fetchall()]
+        conn.close()
+        return subscribers
+    
+    @staticmethod
+    def get_all(db):
+        """Get all hazmat subscribers with details"""
+        conn = db.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT * FROM hazmat_subscribers ORDER BY created_at DESC')
+        subscribers = cursor.fetchall()
+        conn.close()
+        return subscribers
+    
+    @staticmethod
+    def toggle_active(db, email):
+        """Toggle hazmat subscriber active status"""
+        conn = db.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('UPDATE hazmat_subscribers SET active = NOT active WHERE email = ?', (email,))
         affected = cursor.rowcount
         conn.commit()
         conn.close()

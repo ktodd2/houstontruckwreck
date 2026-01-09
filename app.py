@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 import re
 
 from config import Config
-from models import Database, Incident, Subscriber, AdminUser, SentAlert, Settings
+from models import Database, Incident, Subscriber, HazmatSubscriber, AdminUser, SentAlert, Settings
 from scraper import TranStarScraper
 from email_service import EmailService
 
@@ -55,11 +55,18 @@ def scheduled_scrape():
         
         if new_incidents:
             logger.info(f"Found {len(new_incidents)} new incidents, sending alerts...")
+            
+            # Send regular alerts to all subscribers
             success = email_service.send_alert(new_incidents)
             if success:
-                logger.info("✅ Alerts sent successfully")
+                logger.info("✅ Regular alerts sent successfully")
             else:
-                logger.error("❌ Failed to send alerts")
+                logger.error("❌ Failed to send regular alerts")
+            
+            # Send hazmat-specific alerts to hazmat subscribers
+            hazmat_success = email_service.send_hazmat_alert(new_incidents)
+            if hazmat_success:
+                logger.info("✅ Hazmat alerts sent successfully")
         else:
             logger.info("No new incidents found")
             
@@ -238,6 +245,58 @@ def test_email():
         flash(f'Failed to send test email to {test_email}', 'error')
     
     return redirect(url_for('subscribers'))
+
+@app.route('/hazmat_subscribers')
+@login_required
+def hazmat_subscribers():
+    """Hazmat subscriber management page"""
+    all_hazmat_subscribers = HazmatSubscriber.get_all(db)
+    return render_template('hazmat_subscribers.html', hazmat_subscribers=all_hazmat_subscribers)
+
+@app.route('/add_hazmat_subscriber', methods=['POST'])
+@login_required
+def add_hazmat_subscriber():
+    """Add new hazmat subscriber"""
+    email = request.form['email'].strip().lower()
+    
+    # Validate email format
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    if not re.match(email_pattern, email):
+        flash('Invalid email format', 'error')
+        return redirect(url_for('hazmat_subscribers'))
+    
+    if HazmatSubscriber.add(db, email):
+        flash(f'Hazmat subscriber {email} added successfully!', 'success')
+    else:
+        flash(f'Hazmat subscriber {email} already exists', 'error')
+    
+    return redirect(url_for('hazmat_subscribers'))
+
+@app.route('/remove_hazmat_subscriber', methods=['POST'])
+@login_required
+def remove_hazmat_subscriber():
+    """Remove hazmat subscriber"""
+    email = request.form['email']
+    
+    if HazmatSubscriber.remove(db, email):
+        flash(f'Hazmat subscriber {email} removed successfully!', 'success')
+    else:
+        flash(f'Hazmat subscriber {email} not found', 'error')
+    
+    return redirect(url_for('hazmat_subscribers'))
+
+@app.route('/toggle_hazmat_subscriber', methods=['POST'])
+@login_required
+def toggle_hazmat_subscriber():
+    """Toggle hazmat subscriber active status"""
+    email = request.form['email']
+    
+    if HazmatSubscriber.toggle_active(db, email):
+        flash(f'Hazmat subscriber {email} status updated!', 'success')
+    else:
+        flash(f'Hazmat subscriber {email} not found', 'error')
+    
+    return redirect(url_for('hazmat_subscribers'))
 
 @app.route('/manual_scrape', methods=['POST'])
 @login_required
