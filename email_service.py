@@ -1,12 +1,16 @@
 import smtplib
 import ssl
+import csv
+import io
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
 from datetime import datetime
 import pytz
 import logging
 import urllib.parse
-from models import Database, Subscriber, SentAlert
+from models import Database, Subscriber, SentAlert, Incident
 from config import Config
 
 logger = logging.getLogger(__name__)
@@ -359,6 +363,72 @@ You will receive alerts when heavy truck incidents or hazmat spills are detected
         except Exception as e:
             logger.error(f"❌ Failed to send test email: {e}")
             return False
+
+    def send_daily_summary(self):
+        """Send a daily CSV summary of incidents from the last 24 hours."""
+        if not all([self.username, self.password, self.from_email]):
+            logger.error("Email configuration incomplete")
+            return False
+
+        summary_email = Config.DAILY_SUMMARY_EMAIL
+        if not summary_email:
+            logger.error("Daily summary email not configured")
+            return False
+
+        incidents = Incident.get_recent(self.db, hours=24)
+        csv_content = self._build_incident_csv(incidents)
+
+        subject = "📊 Daily Summary: Houston Traffic Monitor (Last 24 Hours)"
+        text_content = (
+            f"Houston Traffic Monitor - Daily Summary\n\n"
+            f"Incidents in the last 24 hours: {len(incidents)}\n"
+            f"Generated: {self.format_central_time()}\n"
+        )
+
+        msg = MIMEMultipart()
+        msg["Subject"] = subject
+        msg["From"] = self.from_email
+        msg["To"] = summary_email
+
+        msg.attach(MIMEText(text_content, "plain"))
+
+        attachment = MIMEBase("text", "csv")
+        attachment.set_payload(csv_content.encode("utf-8"))
+        encoders.encode_base64(attachment)
+        attachment.add_header(
+            "Content-Disposition",
+            "attachment",
+            filename="houston_traffic_daily_summary.csv",
+        )
+        msg.attach(attachment)
+
+        try:
+            context = ssl.create_default_context()
+            with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
+                server.starttls(context=context)
+                server.login(self.username, self.password)
+                server.send_message(msg)
+
+            logger.info("✅ Daily summary email sent successfully")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to send daily summary email: {e}")
+            return False
+
+    def _build_incident_csv(self, incidents):
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["ID", "Location", "Description", "Incident Time", "Scraped At", "Severity"])
+        for incident in incidents:
+            writer.writerow([
+                incident["id"],
+                incident["location"],
+                incident["description"],
+                incident["incident_time"],
+                incident["scraped_at"],
+                incident["severity"],
+            ])
+        return output.getvalue()
 
 def test_email_service():
     """Test function for email service"""

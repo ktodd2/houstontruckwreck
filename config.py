@@ -26,6 +26,9 @@ class Config:
     
     # Alert configuration
     MAX_ALERTS_PER_HOUR = int(os.environ.get('MAX_ALERTS_PER_HOUR', 20))
+
+    # Daily summary configuration
+    DAILY_SUMMARY_EMAIL = os.environ.get('DAILY_SUMMARY_EMAIL', 'ktoddllc1@gmail.com')
     
     # Admin configuration
     DEFAULT_ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')

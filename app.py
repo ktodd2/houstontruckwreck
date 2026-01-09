@@ -65,12 +65,31 @@ def scheduled_scrape():
     except Exception as e:
         logger.error(f"Error in scheduled scrape: {e}")
 
+def scheduled_daily_summary():
+    """Background task to send daily summary email"""
+    try:
+        logger.info("Sending daily summary email...")
+        success = email_service.send_daily_summary()
+        if success:
+            logger.info("✅ Daily summary sent successfully")
+        else:
+            logger.error("❌ Failed to send daily summary")
+    except Exception as e:
+        logger.error(f"Error in daily summary task: {e}")
+
 # Start the scheduler
 scheduler.add_job(
     func=scheduled_scrape,
     trigger=IntervalTrigger(seconds=Config.SCRAPE_INTERVAL),
     id='scrape_job',
     name='Scrape TranStar for incidents',
+    replace_existing=True
+)
+scheduler.add_job(
+    func=scheduled_daily_summary,
+    trigger=IntervalTrigger(hours=24),
+    id='daily_summary_job',
+    name='Send daily incident summary',
     replace_existing=True
 )
 scheduler.start()
