@@ -82,8 +82,9 @@ class EmailService:
             else:
                 bg_color = "#ffffff"  # White for low severity
             
-            # Create Google Maps link
-            location_query = urllib.parse.quote(f"{incident.location} Houston TX")
+            # Create Google Maps link - replace "at" with "and" for better intersection recognition
+            location_formatted = incident.location.replace(' at ', ' and ').replace(' AT ', ' and ')
+            location_query = urllib.parse.quote(f"{location_formatted} Houston TX")
             maps_link = f"https://www.google.com/maps/search/?api=1&query={location_query}"
             
             table_rows += f"""
@@ -234,13 +235,15 @@ HOUSTON TRAFFIC ALERT - {self.format_central_time()}
         
         for i, (incident, incident_id) in enumerate(incidents, 1):
             priority = "HIGH" if incident.severity >= 4 else "MEDIUM" if incident.severity >= 3 else "LOW"
+            # Replace "at" with "and" for better intersection recognition
+            location_formatted = incident.location.replace(' at ', ' and ').replace(' AT ', ' and ')
             text_content += f"""
 Incident #{i}:
 Location: {incident.location}
 Description: {incident.description}
 Time: {incident.incident_time}
 Priority: {priority}
-Google Maps: https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(f"{incident.location} Houston TX")}
+Google Maps: https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(f"{location_formatted} Houston TX")}
 
 {'-' * 60}
 """
@@ -355,7 +358,8 @@ Generated: {self.format_central_time()}
             table_rows = ""
             for incident, incident_id in hazmat_incidents:
                 bg_color = "#ffcccc"  # Red for hazmat incidents
-                location_query = urllib.parse.quote(f"{incident.location} Houston TX")
+                location_formatted = incident.location.replace(' at ', ' and ').replace(' AT ', ' and ')
+                location_query = urllib.parse.quote(f"{location_formatted} Houston TX")
                 maps_link = f"https://www.google.com/maps/search/?api=1&query={location_query}"
                 
                 table_rows += f"""
@@ -487,12 +491,13 @@ HOUSTON HAZMAT ALERT - {self.format_central_time()}
 """
             
             for i, (incident, incident_id) in enumerate(hazmat_incidents, 1):
+                location_formatted = incident.location.replace(' at ', ' and ').replace(' AT ', ' and ')
                 text_content += f"""
 Hazmat Incident #{i}:
 Location: {incident.location}
 Description: {incident.description}
 Time: {incident.incident_time}
-Google Maps: https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(f"{incident.location} Houston TX")}
+Google Maps: https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(f"{location_formatted} Houston TX")}
 
 {'-' * 60}
 """
@@ -649,8 +654,9 @@ You will receive alerts when heavy truck incidents or hazmat spills are detected
             else:
                 bg_color = "#ffffff"  # White for low severity
             
-            # Create Google Maps link
-            location_query = urllib.parse.quote(f"{incident['location']} Houston TX")
+            # Create Google Maps link - replace "at" with "and" for better intersection recognition
+            location_formatted = incident['location'].replace(' at ', ' and ').replace(' AT ', ' and ')
+            location_query = urllib.parse.quote(f"{location_formatted} Houston TX")
             maps_link = f"https://www.google.com/maps/search/?api=1&query={location_query}"
             
             # Determine incident type icon
