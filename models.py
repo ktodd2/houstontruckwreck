@@ -113,7 +113,8 @@ class Database:
         # Add default subscribers if they don't exist
         default_subscribers = [
             'ktoddizzle@icloud.com',
-            'branhar01@gmail.com'
+            'branhar01@gmail.com',
+            'ralaniz911@yahoo.com'
         ]
         
         for email in default_subscribers:
@@ -124,6 +125,20 @@ class Database:
                     (email,)
                 )
                 print(f"Added default subscriber: {email}")
+        
+        # Add default hazmat subscribers if they don't exist
+        default_hazmat_subscribers = [
+            'ralaniz911@yahoo.com'
+        ]
+        
+        for email in default_hazmat_subscribers:
+            cursor.execute('SELECT COUNT(*) FROM hazmat_subscribers WHERE email = ?', (email,))
+            if cursor.fetchone()[0] == 0:
+                cursor.execute(
+                    'INSERT INTO hazmat_subscribers (email, active) VALUES (?, 1)',
+                    (email,)
+                )
+                print(f"Added default hazmat subscriber: {email}")
         
         conn.commit()
         conn.close()
