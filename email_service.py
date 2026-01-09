@@ -160,7 +160,7 @@ class EmailService:
         <body>
             <div class="container">
                 <div class="header">
-                    <img src="https://iili.io/FHbRMKu.png" alt="Houston Traffic Monitor Logo" style="max-width: 200px; height: auto; margin-bottom: 10px;"><br>
+                    <img src="https://freeimage.host/i/fkqNPtt" alt="Houston Traffic Monitor Logo" style="max-width: 200px; height: auto; margin-bottom: 10px;"><br>
                     <div class="logo">Houston Traffic Monitor</div>
                     <div>Heavy Truck & Hazmat Incident Alert System</div>
                 </div>
@@ -422,7 +422,7 @@ Generated: {self.format_central_time()}
             <body>
                 <div class="container">
                     <div class="header">
-                        <img src="https://iili.io/FHbRMKu.png" alt="Houston Traffic Monitor Logo" style="max-width: 200px; height: auto; margin-bottom: 10px;"><br>
+                        <img src="https://freeimage.host/i/fkqNPtt" alt="Houston Traffic Monitor Logo" style="max-width: 200px; height: auto; margin-bottom: 10px;"><br>
                         <div class="logo">☣️ HAZMAT ALERT SYSTEM</div>
                         <div>Hazardous Material & Spill Monitoring</div>
                     </div>
@@ -539,7 +539,7 @@ You are receiving this because you subscribed to hazmat-only alerts.
             <body>
                 <div class="container">
                     <div class="header">
-                        <img src="https://iili.io/FHbRMKu.png" alt="Houston Traffic Monitor Logo" style="max-width: 150px; height: auto; margin-bottom: 10px;"><br>
+                        <img src="https://freeimage.host/i/fkqNPtt" alt="Houston Traffic Monitor Logo" style="max-width: 150px; height: auto; margin-bottom: 10px;"><br>
                         <h2>Houston Traffic Monitor</h2>
                         <h3>Test Email Successful!</h3>
                     </div>
@@ -753,7 +753,7 @@ You will receive alerts when heavy truck incidents or hazmat spills are detected
         <body>
             <div class="container">
                 <div class="header">
-                    <img src="https://iili.io/FHbRMKu.png" alt="Houston Traffic Monitor Logo" style="max-width: 200px; height: auto; margin-bottom: 10px;"><br>
+                    <img src="https://freeimage.host/i/fkqNPtt" alt="Houston Traffic Monitor Logo" style="max-width: 200px; height: auto; margin-bottom: 10px;"><br>
                     <div class="logo">📊 Daily Traffic Summary</div>
                     <div style="font-size: 18px; color: #666;">Houston Heavy Truck & Hazmat Incidents</div>
                     <div style="font-size: 14px; color: #999; margin-top: 10px;">{date_str}</div>
