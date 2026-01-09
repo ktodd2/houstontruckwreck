@@ -82,8 +82,8 @@ class EmailService:
             else:
                 bg_color = "#ffffff"  # White for low severity
             
-            # Create Google Maps link - replace "at" with "and" for better intersection recognition
-            location_formatted = incident.location.replace(' at ', ' and ').replace(' AT ', ' and ')
+            # Create Google Maps link - replace "at" and "@" with "and" for better intersection recognition
+            location_formatted = incident.location.replace(' @ ', ' and ').replace('@', ' and ').replace(' at ', ' and ').replace(' AT ', ' and ')
             location_query = urllib.parse.quote(f"{location_formatted} Houston TX")
             maps_link = f"https://www.google.com/maps/search/?api=1&query={location_query}"
             
@@ -235,8 +235,8 @@ HOUSTON TRAFFIC ALERT - {self.format_central_time()}
         
         for i, (incident, incident_id) in enumerate(incidents, 1):
             priority = "HIGH" if incident.severity >= 4 else "MEDIUM" if incident.severity >= 3 else "LOW"
-            # Replace "at" with "and" for better intersection recognition
-            location_formatted = incident.location.replace(' at ', ' and ').replace(' AT ', ' and ')
+            # Replace "at" and "@" with "and" for better intersection recognition
+            location_formatted = incident.location.replace(' @ ', ' and ').replace('@', ' and ').replace(' at ', ' and ').replace(' AT ', ' and ')
             text_content += f"""
 Incident #{i}:
 Location: {incident.location}
@@ -358,7 +358,7 @@ Generated: {self.format_central_time()}
             table_rows = ""
             for incident, incident_id in hazmat_incidents:
                 bg_color = "#ffcccc"  # Red for hazmat incidents
-                location_formatted = incident.location.replace(' at ', ' and ').replace(' AT ', ' and ')
+                location_formatted = incident.location.replace(' @ ', ' and ').replace('@', ' and ').replace(' at ', ' and ').replace(' AT ', ' and ')
                 location_query = urllib.parse.quote(f"{location_formatted} Houston TX")
                 maps_link = f"https://www.google.com/maps/search/?api=1&query={location_query}"
                 
@@ -491,7 +491,7 @@ HOUSTON HAZMAT ALERT - {self.format_central_time()}
 """
             
             for i, (incident, incident_id) in enumerate(hazmat_incidents, 1):
-                location_formatted = incident.location.replace(' at ', ' and ').replace(' AT ', ' and ')
+                location_formatted = incident.location.replace(' @ ', ' and ').replace('@', ' and ').replace(' at ', ' and ').replace(' AT ', ' and ')
                 text_content += f"""
 Hazmat Incident #{i}:
 Location: {incident.location}
