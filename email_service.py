@@ -112,106 +112,144 @@ class EmailService:
             <title>Houston Traffic Alert</title>
             <style>
                 body {{
-                    font-family: Arial, sans-serif;
+                    font-family: "Inter", Arial, sans-serif;
                     margin: 0;
-                    padding: 20px;
-                    background-color: #f5f5f5;
+                    padding: 24px;
+                    background-color: #f3f6fb;
+                    color: #1f2937;
                 }}
                 .container {{
-                    max-width: 800px;
+                    max-width: 720px;
                     margin: 0 auto;
-                    background-color: white;
-                    padding: 20px;
-                    border-radius: 10px;
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                    background-color: #ffffff;
+                    border-radius: 18px;
+                    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+                    overflow: hidden;
+                    border: 1px solid #e5e7eb;
                 }}
                 .header {{
+                    padding: 28px 32px;
                     text-align: center;
-                    margin-bottom: 20px;
-                    padding-bottom: 15px;
-                    border-bottom: 2px solid #007bff;
+                    background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+                    color: #ffffff;
                 }}
-                .logo {{
+                .header-title {{
                     font-size: 24px;
-                    font-weight: bold;
-                    color: #007bff;
-                    margin-bottom: 10px;
+                    font-weight: 700;
+                    margin: 12px 0 4px;
                 }}
-                .alert-info {{
-                    background-color: #e7f3ff;
-                    padding: 15px;
-                    border-radius: 5px;
+                .header-subtitle {{
+                    font-size: 14px;
+                    opacity: 0.9;
+                }}
+                .content {{
+                    padding: 28px 32px 8px;
+                }}
+                .alert-card {{
+                    background: #eff6ff;
+                    border-radius: 14px;
+                    padding: 16px 18px;
+                    border: 1px solid #dbeafe;
                     margin-bottom: 20px;
-                    border-left: 4px solid #007bff;
+                }}
+                .alert-title {{
+                    font-weight: 600;
+                    margin-bottom: 6px;
+                    color: #1d4ed8;
+                }}
+                .alert-meta {{
+                    font-size: 14px;
+                    color: #334155;
+                    line-height: 1.5;
                 }}
                 table {{
                     width: 100%;
                     border-collapse: collapse;
-                    margin: 20px 0;
+                    font-size: 14px;
                 }}
                 th {{
-                    background-color: #f8f9fa;
-                    padding: 12px;
                     text-align: left;
-                    border: 1px solid #ddd;
-                    font-weight: bold;
+                    padding: 12px 14px;
+                    background-color: #f8fafc;
+                    color: #64748b;
+                    font-size: 12px;
+                    letter-spacing: 0.08em;
+                    text-transform: uppercase;
                 }}
                 td {{
-                    padding: 12px;
-                    border: 1px solid #ddd;
+                    padding: 12px 14px;
+                    border-top: 1px solid #e5e7eb;
+                }}
+                .table-card {{
+                    border: 1px solid #e5e7eb;
+                    border-radius: 14px;
+                    overflow: hidden;
+                    margin-bottom: 16px;
+                }}
+                .severity-legend {{
+                    font-size: 12px;
+                    color: #475569;
+                    background: #f8fafc;
+                    padding: 12px 16px;
+                    border-radius: 12px;
+                    border: 1px solid #e2e8f0;
+                    margin-bottom: 20px;
                 }}
                 .footer {{
                     text-align: center;
-                    margin-top: 30px;
-                    padding-top: 20px;
-                    border-top: 1px solid #eee;
                     font-size: 12px;
-                    color: #666;
+                    color: #64748b;
+                    padding: 18px 24px 26px;
+                    border-top: 1px solid #e5e7eb;
+                    background: #f8fafc;
                 }}
-                .severity-legend {{
-                    margin: 15px 0;
-                    padding: 10px;
-                    background-color: #f8f9fa;
-                    border-radius: 5px;
-                    font-size: 12px;
+                a {{
+                    color: #2563eb;
+                    text-decoration: none;
                 }}
             </style>
         </head>
         <body>
             <div class="container">
                 <div class="header">
-                    <img src="{self.logo_base64}" alt="Houston Traffic Monitor Logo" style="max-width: 200px; height: auto; margin-bottom: 10px;"><br>
-                    <div class="logo">Houston Traffic Monitor</div>
-                    <div>Heavy Truck & Hazmat Incident Alert System</div>
+                    <img src="{self.logo_base64}" alt="Houston Traffic Monitor Logo" style="max-width: 180px; height: auto; margin-bottom: 6px;"><br>
+                    <div class="header-title">Houston Traffic Monitor</div>
+                    <div class="header-subtitle">Heavy Truck & Hazmat Incident Alerts</div>
                 </div>
-                
-                <div class="alert-info">
-                    <strong>📊 Alert Summary:</strong><br>
-                    {len(incidents)} new incident(s) detected at {self.format_central_time()}<br>
-                    Source: Houston TranStar Traffic Management
+
+                <div class="content">
+                    <div class="alert-card">
+                        <div class="alert-title">📊 Alert Summary</div>
+                        <div class="alert-meta">
+                            {len(incidents)} new incident(s) detected at {self.format_central_time()}<br>
+                            Source: Houston TranStar Traffic Management
+                        </div>
+                    </div>
+
+                    <div class="table-card">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>📍 Location</th>
+                                    <th>📝 Description</th>
+                                    <th>🕐 Time</th>
+                                    <th>⚠️ Priority</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {table_rows}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="severity-legend">
+                        <strong>Priority Legend:</strong>
+                        🔴 High Priority (Spills, Major Accidents) |
+                        🟡 Medium Priority (Accidents, Blockages) |
+                        🟢 Low Priority (Stalls, Minor Incidents)
+                    </div>
                 </div>
-                
-                <table>
-                    <thead>
-                        <tr>
-                            <th>📍 Location</th>
-                            <th>📝 Description</th>
-                            <th>🕐 Time</th>
-                            <th>⚠️ Priority</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {table_rows}
-                    </tbody>
-                </table>
-                
-                <div class="severity-legend">
-                    <strong>Priority Legend:</strong>
-                    🔴 High Priority (Spills, Major Accidents) | 
-                    🟡 Medium Priority (Accidents, Blockages) | 
-                    🟢 Low Priority (Stalls, Minor Incidents)
-                </div>
-                
+
                 <div class="footer">
                     <strong>Houston Traffic Monitor</strong><br>
                     Automated monitoring system for heavy truck incidents and hazmat spills<br>
@@ -383,99 +421,134 @@ Generated: {self.format_central_time()}
                 <title>Houston Hazmat Alert</title>
                 <style>
                     body {{
-                        font-family: Arial, sans-serif;
+                        font-family: "Inter", Arial, sans-serif;
                         margin: 0;
-                        padding: 20px;
-                        background-color: #f5f5f5;
+                        padding: 24px;
+                        background-color: #fff5f5;
+                        color: #1f2937;
                     }}
                     .container {{
-                        max-width: 800px;
+                        max-width: 720px;
                         margin: 0 auto;
-                        background-color: white;
-                        padding: 20px;
-                        border-radius: 10px;
-                        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                        background-color: #ffffff;
+                        border-radius: 18px;
+                        box-shadow: 0 18px 40px rgba(220, 38, 38, 0.15);
+                        overflow: hidden;
+                        border: 1px solid #fee2e2;
                     }}
                     .header {{
+                        padding: 28px 32px;
                         text-align: center;
-                        margin-bottom: 20px;
-                        padding-bottom: 15px;
-                        border-bottom: 3px solid #dc3545;
+                        background: linear-gradient(135deg, #dc2626, #f97316);
+                        color: #ffffff;
                     }}
-                    .logo {{
-                        font-size: 24px;
-                        font-weight: bold;
-                        color: #dc3545;
-                        margin-bottom: 10px;
+                    .header-title {{
+                        font-size: 22px;
+                        font-weight: 700;
+                        margin: 12px 0 4px;
                     }}
-                    .alert-info {{
-                        background-color: #fff3cd;
-                        padding: 15px;
-                        border-radius: 5px;
+                    .header-subtitle {{
+                        font-size: 14px;
+                        opacity: 0.9;
+                    }}
+                    .content {{
+                        padding: 28px 32px 8px;
+                    }}
+                    .alert-card {{
+                        background: #fff7ed;
+                        border-radius: 14px;
+                        padding: 16px 18px;
+                        border: 1px solid #fed7aa;
                         margin-bottom: 20px;
-                        border-left: 4px solid #dc3545;
+                    }}
+                    .alert-title {{
+                        font-weight: 700;
+                        color: #b91c1c;
+                        margin-bottom: 6px;
+                    }}
+                    .alert-meta {{
+                        font-size: 14px;
+                        color: #7c2d12;
+                        line-height: 1.5;
                     }}
                     table {{
                         width: 100%;
                         border-collapse: collapse;
-                        margin: 20px 0;
+                        font-size: 14px;
                     }}
                     th {{
-                        background-color: #dc3545;
-                        color: white;
-                        padding: 12px;
                         text-align: left;
-                        border: 1px solid #bd2130;
-                        font-weight: bold;
+                        padding: 12px 14px;
+                        background-color: #fee2e2;
+                        color: #b91c1c;
+                        font-size: 12px;
+                        letter-spacing: 0.08em;
+                        text-transform: uppercase;
                     }}
                     td {{
-                        padding: 12px;
-                        border: 1px solid #ddd;
+                        padding: 12px 14px;
+                        border-top: 1px solid #e5e7eb;
+                    }}
+                    .table-card {{
+                        border: 1px solid #fecaca;
+                        border-radius: 14px;
+                        overflow: hidden;
+                        margin-bottom: 16px;
                     }}
                     .footer {{
                         text-align: center;
-                        margin-top: 30px;
-                        padding-top: 20px;
-                        border-top: 1px solid #eee;
                         font-size: 12px;
-                        color: #666;
+                        color: #7f1d1d;
+                        padding: 18px 24px 26px;
+                        border-top: 1px solid #fee2e2;
+                        background: #fff1f2;
+                    }}
+                    a {{
+                        color: #dc2626;
+                        text-decoration: none;
                     }}
                 </style>
             </head>
             <body>
                 <div class="container">
                     <div class="header">
-                        <img src="{self.logo_base64}" alt="Houston Traffic Monitor Logo" style="max-width: 200px; height: auto; margin-bottom: 10px;"><br>
-                        <div class="logo">☣️ HAZMAT ALERT SYSTEM</div>
-                        <div>Hazardous Material & Spill Monitoring</div>
+                        <img src="{self.logo_base64}" alt="Houston Traffic Monitor Logo" style="max-width: 180px; height: auto; margin-bottom: 6px;"><br>
+                        <div class="header-title">☣️ Hazmat Alert System</div>
+                        <div class="header-subtitle">Hazardous Material & Spill Monitoring</div>
                     </div>
-                    
-                    <div class="alert-info">
-                        <strong>⚠️ CRITICAL HAZMAT ALERT:</strong><br>
-                        {len(hazmat_incidents)} hazmat/spill incident(s) detected at {self.format_central_time()}<br>
-                        <strong>Immediate attention required</strong><br>
-                        Source: Houston TranStar Traffic Management
+
+                    <div class="content">
+                        <div class="alert-card">
+                            <div class="alert-title">⚠️ Critical Hazmat Alert</div>
+                            <div class="alert-meta">
+                                {len(hazmat_incidents)} hazmat/spill incident(s) detected at {self.format_central_time()}<br>
+                                Immediate attention required<br>
+                                Source: Houston TranStar Traffic Management
+                            </div>
+                        </div>
+
+                        <div class="table-card">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>📍 Location</th>
+                                        <th>📝 Description</th>
+                                        <th>🕐 Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {table_rows}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                    
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>📍 Location</th>
-                                <th>📝 Description</th>
-                                <th>🕐 Time</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {table_rows}
-                        </tbody>
-                    </table>
-                    
+
                     <div class="footer">
                         <strong>Houston Traffic Monitor - Hazmat Alert System</strong><br>
                         Specialized monitoring for hazardous material spills and incidents<br>
                         Data source: Houston TranStar | Generated: {self.format_central_time()}<br>
                         <br>
-                        <em>You are receiving this because you subscribed to hazmat-only alerts</em>
+                        <em>You are receiving this because you subscribed to hazmat-only alerts.</em>
                     </div>
                 </div>
             </body>
@@ -555,9 +628,40 @@ You are receiving this because you subscribed to hazmat-only alerts.
             <head>
                 <meta charset="UTF-8">
                 <style>
-                    body {{ font-family: Arial, sans-serif; margin: 20px; }}
-                    .container {{ max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; }}
-                    .header {{ text-align: center; color: #007bff; margin-bottom: 20px; }}
+                    body {{
+                        font-family: "Inter", Arial, sans-serif;
+                        margin: 0;
+                        padding: 24px;
+                        background-color: #f3f6fb;
+                        color: #1f2937;
+                    }}
+                    .container {{
+                        max-width: 640px;
+                        margin: 0 auto;
+                        background: #ffffff;
+                        border-radius: 16px;
+                        border: 1px solid #e5e7eb;
+                        box-shadow: 0 16px 32px rgba(15, 23, 42, 0.12);
+                        overflow: hidden;
+                    }}
+                    .header {{
+                        text-align: center;
+                        padding: 24px;
+                        background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+                        color: #ffffff;
+                    }}
+                    .content {{
+                        padding: 24px;
+                    }}
+                    .status-pill {{
+                        display: inline-block;
+                        padding: 6px 12px;
+                        border-radius: 999px;
+                        background: #dcfce7;
+                        color: #166534;
+                        font-weight: 600;
+                        font-size: 12px;
+                    }}
                 </style>
             </head>
             <body>
@@ -567,10 +671,12 @@ You are receiving this because you subscribed to hazmat-only alerts.
                         <h2>Houston Traffic Monitor</h2>
                         <h3>Test Email Successful!</h3>
                     </div>
-                    <p>This is a test email to verify that your Houston Traffic Monitor email system is working correctly.</p>
-                    <p><strong>System Status:</strong> ✅ Email service operational</p>
-                    <p><strong>Test Time:</strong> {self.format_central_time()}</p>
-                    <p>You will receive alerts when heavy truck incidents or hazmat spills are detected in the Houston area.</p>
+                    <div class="content">
+                        <p>This is a test email to verify that your Houston Traffic Monitor email system is working correctly.</p>
+                        <p><strong>System Status:</strong> <span class="status-pill">✅ Email service operational</span></p>
+                        <p><strong>Test Time:</strong> {self.format_central_time()}</p>
+                        <p>You will receive alerts when heavy truck incidents or hazmat spills are detected in the Houston area.</p>
+                    </div>
                 </div>
             </body>
             </html>
@@ -692,136 +798,179 @@ You will receive alerts when heavy truck incidents or hazmat spills are detected
             <title>Houston Traffic Daily Summary</title>
             <style>
                 body {{
-                    font-family: Arial, sans-serif;
+                    font-family: "Inter", Arial, sans-serif;
                     margin: 0;
-                    padding: 20px;
-                    background-color: #f5f5f5;
+                    padding: 24px;
+                    background-color: #f3f6fb;
+                    color: #1f2937;
                 }}
                 .container {{
-                    max-width: 900px;
+                    max-width: 860px;
                     margin: 0 auto;
-                    background-color: white;
-                    padding: 30px;
-                    border-radius: 10px;
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                    background-color: #ffffff;
+                    border-radius: 18px;
+                    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+                    overflow: hidden;
+                    border: 1px solid #e5e7eb;
                 }}
                 .header {{
                     text-align: center;
-                    margin-bottom: 30px;
-                    padding-bottom: 20px;
-                    border-bottom: 3px solid #007bff;
+                    padding: 28px 32px;
+                    background: linear-gradient(135deg, #0f172a, #1d4ed8);
+                    color: #ffffff;
                 }}
-                .logo {{
-                    font-size: 28px;
-                    font-weight: bold;
-                    color: #007bff;
-                    margin-bottom: 10px;
+                .header-title {{
+                    font-size: 26px;
+                    font-weight: 700;
+                    margin: 12px 0 6px;
                 }}
-                .summary-box {{
+                .header-subtitle {{
+                    font-size: 14px;
+                    opacity: 0.85;
+                }}
+                .date-pill {{
+                    margin-top: 12px;
+                    display: inline-block;
+                    padding: 6px 12px;
+                    border-radius: 999px;
+                    background: rgba(255, 255, 255, 0.2);
+                    font-size: 12px;
+                }}
+                .content {{
+                    padding: 28px 32px 12px;
+                }}
+                .summary-grid {{
                     display: flex;
-                    justify-content: space-around;
-                    margin: 20px 0;
+                    gap: 14px;
                     flex-wrap: wrap;
+                    margin-bottom: 20px;
                 }}
                 .summary-item {{
-                    text-align: center;
-                    padding: 20px;
-                    margin: 10px;
-                    background-color: #f8f9fa;
-                    border-radius: 8px;
-                    min-width: 150px;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+                    flex: 1 1 160px;
+                    background: #f8fafc;
+                    border-radius: 14px;
+                    padding: 16px;
+                    border: 1px solid #e2e8f0;
                 }}
                 .summary-number {{
-                    font-size: 36px;
-                    font-weight: bold;
-                    color: #007bff;
+                    font-size: 30px;
+                    font-weight: 700;
+                    color: #1d4ed8;
                 }}
                 .summary-label {{
-                    font-size: 14px;
-                    color: #666;
-                    margin-top: 5px;
+                    font-size: 13px;
+                    color: #64748b;
+                    margin-top: 6px;
+                }}
+                .section-title {{
+                    color: #1d4ed8;
+                    border-bottom: 2px solid #e2e8f0;
+                    padding-bottom: 8px;
+                    margin-bottom: 10px;
+                }}
+                .section-note {{
+                    color: #64748b;
+                    font-size: 13px;
+                    margin-bottom: 16px;
                 }}
                 table {{
                     width: 100%;
                     border-collapse: collapse;
-                    margin: 25px 0;
+                    font-size: 14px;
                 }}
                 th {{
-                    background-color: #007bff;
-                    color: white;
-                    padding: 12px;
                     text-align: left;
-                    border: 1px solid #0056b3;
-                    font-weight: bold;
+                    padding: 12px 14px;
+                    background-color: #f1f5f9;
+                    color: #64748b;
+                    font-size: 12px;
+                    letter-spacing: 0.08em;
+                    text-transform: uppercase;
                 }}
                 td {{
-                    padding: 12px;
-                    border: 1px solid #ddd;
+                    padding: 12px 14px;
+                    border-top: 1px solid #e5e7eb;
                 }}
-                .footer {{
-                    text-align: center;
-                    margin-top: 30px;
-                    padding-top: 20px;
-                    border-top: 2px solid #eee;
-                    font-size: 12px;
-                    color: #666;
+                .table-card {{
+                    border: 1px solid #e2e8f0;
+                    border-radius: 14px;
+                    overflow: hidden;
+                    margin-bottom: 20px;
                 }}
                 .no-incidents {{
                     text-align: center;
-                    padding: 40px;
-                    font-size: 18px;
-                    color: #28a745;
+                    padding: 32px;
+                    font-size: 16px;
+                    color: #16a34a;
+                    background: #f0fdf4;
+                    border-radius: 14px;
+                    border: 1px solid #bbf7d0;
+                }}
+                .footer {{
+                    text-align: center;
+                    font-size: 12px;
+                    color: #64748b;
+                    padding: 18px 24px 26px;
+                    border-top: 1px solid #e5e7eb;
+                    background: #f8fafc;
+                }}
+                a {{
+                    color: #2563eb;
+                    text-decoration: none;
                 }}
             </style>
         </head>
         <body>
             <div class="container">
                 <div class="header">
-                    <img src="{self.logo_base64}" alt="Houston Traffic Monitor Logo" style="max-width: 200px; height: auto; margin-bottom: 10px;"><br>
-                    <div class="logo">📊 Daily Traffic Summary</div>
-                    <div style="font-size: 18px; color: #666;">Houston Heavy Truck & Hazmat Incidents</div>
-                    <div style="font-size: 14px; color: #999; margin-top: 10px;">{date_str}</div>
+                    <img src="{self.logo_base64}" alt="Houston Traffic Monitor Logo" style="max-width: 180px; height: auto; margin-bottom: 6px;"><br>
+                    <div class="header-title">📊 Daily Traffic Summary</div>
+                    <div class="header-subtitle">Houston Heavy Truck & Hazmat Incidents</div>
+                    <div class="date-pill">{date_str}</div>
                 </div>
-                
-                <div class="summary-box">
-                    <div class="summary-item">
-                        <div class="summary-number">{total_incidents}</div>
-                        <div class="summary-label">Total Incidents</div>
+
+                <div class="content">
+                    <div class="summary-grid">
+                        <div class="summary-item">
+                            <div class="summary-number">{total_incidents}</div>
+                            <div class="summary-label">Total Incidents</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="summary-number" style="color: #dc2626;">{len(wrecks)}</div>
+                            <div class="summary-label">🚗 Wrecks/Accidents</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="summary-number" style="color: #f59e0b;">{len(stalls)}</div>
+                            <div class="summary-label">🚛 Stalls</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="summary-number" style="color: #f97316;">{len(spills)}</div>
+                            <div class="summary-label">☣️ Hazmat/Spills</div>
+                        </div>
                     </div>
-                    <div class="summary-item">
-                        <div class="summary-number" style="color: #dc3545;">{len(wrecks)}</div>
-                        <div class="summary-label">🚗 Wrecks/Accidents</div>
+
+                    {"<div class='no-incidents'>✅ Great news! No incidents were reported today.</div>" if total_incidents == 0 else f'''
+                    <h3 class="section-title">Detailed Incident Report</h3>
+                    <p class="section-note">See the attached CSV file for complete data that can be imported into spreadsheets.</p>
+
+                    <div class="table-card">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="text-align: center;">Type</th>
+                                    <th>📍 Location</th>
+                                    <th>📝 Description</th>
+                                    <th>🕐 Time</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {table_rows}
+                            </tbody>
+                        </table>
                     </div>
-                    <div class="summary-item">
-                        <div class="summary-number" style="color: #ffc107;">{len(stalls)}</div>
-                        <div class="summary-label">🚛 Stalls</div>
-                    </div>
-                    <div class="summary-item">
-                        <div class="summary-number" style="color: #ff6b6b;">{len(spills)}</div>
-                        <div class="summary-label">☣️ Hazmat/Spills</div>
-                    </div>
+                    '''}
                 </div>
-                
-                {"<div class='no-incidents'>✅ Great news! No incidents were reported today.</div>" if total_incidents == 0 else f'''
-                <h3 style="color: #007bff; border-bottom: 2px solid #e9ecef; padding-bottom: 10px;">Detailed Incident Report</h3>
-                <p style="color: #666; font-size: 14px;">See attached CSV file for complete data that can be imported into spreadsheets.</p>
-                
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="text-align: center;">Type</th>
-                            <th>📍 Location</th>
-                            <th>📝 Description</th>
-                            <th>🕐 Time</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {table_rows}
-                    </tbody>
-                </table>
-                '''}
-                
+
                 <div class="footer">
                     <strong>Houston Traffic Monitor</strong><br>
                     Daily automated summary of heavy truck incidents and hazmat spills<br>
