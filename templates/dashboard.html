@@ -4,16 +4,19 @@
 
 {% block content %}
 <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h2">Dashboard</h1>
+    <div class="page-header">
         <div>
+            <div class="page-title">Dashboard</div>
+            <div class="page-subtitle">Monitor live scraping, alerts, and activity at a glance.</div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
             <form method="POST" action="{{ url_for('manual_scrape') }}" class="d-inline">
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-sync-alt me-2"></i> Manual Scrape
                 </button>
             </form>
-            <form method="POST" action="{{ url_for('test_daily_summary') }}" class="d-inline ms-2">
-                <button type="submit" class="btn btn-info">
+            <form method="POST" action="{{ url_for('test_daily_summary') }}" class="d-inline">
+                <button type="submit" class="btn btn-info text-white">
                     <i class="fas fa-envelope me-2"></i> Test Daily Summary
                 </button>
             </form>
@@ -23,50 +26,50 @@
     <!-- Stats Cards -->
     <div class="row mb-4">
         <div class="col-md-3">
-            <div class="card stats-card bg-primary text-white">
+            <div class="card stats-card" style="--accent: #2563eb;">
                 <div class="card-body">
-                    <h5 class="card-title">Recent Incidents</h5>
-                    <h2 class="display-4">{{ recent_incidents|length }}</h2>
-                    <p class="card-text">In the last 24 hours</p>
+                    <div class="stats-title">Recent Incidents</div>
+                    <div class="stats-value">{{ recent_incidents|length }}</div>
+                    <div class="stats-meta">In the last 24 hours</div>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card stats-card bg-success text-white">
+            <div class="card stats-card" style="--accent: #16a34a;">
                 <div class="card-body">
-                    <h5 class="card-title">Subscribers</h5>
-                    <h2 class="display-4">{{ active_subscribers }}</h2>
-                    <p class="card-text">Active out of {{ total_subscribers }} total</p>
+                    <div class="stats-title">Subscribers</div>
+                    <div class="stats-value">{{ active_subscribers }}</div>
+                    <div class="stats-meta">Active out of {{ total_subscribers }} total</div>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card stats-card bg-warning text-dark">
+            <div class="card stats-card" style="--accent: #f59e0b;">
                 <div class="card-body">
-                    <h5 class="card-title">Alerts Sent</h5>
-                    <h2 class="display-4">{{ alerts_today }}</h2>
-                    <p class="card-text">In the last 24 hours</p>
+                    <div class="stats-title">Alerts Sent</div>
+                    <div class="stats-value">{{ alerts_today }}</div>
+                    <div class="stats-meta">In the last 24 hours</div>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card stats-card bg-info text-white">
+            <div class="card stats-card" style="--accent: #0ea5e9;">
                 <div class="card-body">
-                    <h5 class="card-title">Scraper Status</h5>
-                    <h2>
+                    <div class="stats-title">Scraper Status</div>
+                    <div class="stats-value">
                         {% if scraper_running %}
                             <span class="badge bg-success">Active</span>
                         {% else %}
                             <span class="badge bg-danger">Inactive</span>
                         {% endif %}
-                    </h2>
-                    <p class="card-text">
+                    </div>
+                    <div class="stats-meta">
                         {% if next_run %}
                             Next run: {{ next_run.strftime('%H:%M:%S') }}
                         {% else %}
                             Interval: {{ scrape_interval }}s
                         {% endif %}
-                    </p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -80,7 +83,7 @@
                     <h5 class="mb-0">🔄 Live Scraping Log</h5>
                     <span class="badge bg-success">Auto-refreshing</span>
                 </div>
-                <div class="card-body" style="max-height: 400px; overflow-y: auto; background-color: #1e1e1e; color: #d4d4d4; font-family: 'Courier New', monospace; font-size: 13px;">
+                <div class="card-body log-panel" style="max-height: 400px; overflow-y: auto; font-size: 13px;">
                     <div id="scrape-logs">
                         <div class="text-center text-muted">
                             <i class="fas fa-spinner fa-spin"></i> Loading logs...
