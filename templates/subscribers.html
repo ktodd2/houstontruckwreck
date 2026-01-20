@@ -10,10 +10,10 @@
             <div class="page-subtitle">Grow your alert list and send quick test messages.</div>
         </div>
     </div>
-    
+
     <div class="row">
         <!-- Add Subscriber Form -->
-        <div class="col-md-6 mb-4">
+        <div class="col-md-4 mb-4">
             <div class="card">
                 <div class="card-header">
                     <h5 class="mb-0">Add New Subscriber</h5>
@@ -34,9 +34,9 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Test Email Form -->
-        <div class="col-md-6 mb-4">
+        <div class="col-md-4 mb-4">
             <div class="card">
                 <div class="card-header">
                     <h5 class="mb-0">Send Test Email</h5>
@@ -57,8 +57,31 @@
                 </div>
             </div>
         </div>
+
+        <!-- Test SMS Form -->
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Send Test SMS</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('test_sms') }}">
+                        <div class="mb-3">
+                            <label for="test_phone" class="form-label">Phone Number</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-mobile-alt"></i></span>
+                                <input type="tel" class="form-control" id="test_phone" name="phone" required placeholder="(555) 123-4567">
+                                <button type="submit" class="btn btn-success">
+                                    <i class="fas fa-sms me-1"></i> Send Test
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
-    
+
     <!-- Subscribers List -->
     <div class="card">
         <div class="card-header">
@@ -74,7 +97,9 @@
                         <thead>
                             <tr>
                                 <th>Email</th>
-                                <th>Status</th>
+                                <th>Phone</th>
+                                <th>Email Status</th>
+                                <th>SMS Status</th>
                                 <th>Subscribed On</th>
                                 <th>Actions</th>
                             </tr>
@@ -84,11 +109,36 @@
                                 <tr>
                                     <td>{{ subscriber.email }}</td>
                                     <td>
+                                        <form method="POST" action="{{ url_for('update_subscriber_phone') }}" class="d-flex">
+                                            <input type="hidden" name="email" value="{{ subscriber.email }}">
+                                            <input type="tel" class="form-control form-control-sm" name="phone"
+                                                   value="{{ subscriber.phone or '' }}"
+                                                   placeholder="(555) 123-4567" style="width: 130px;">
+                                            <button type="submit" class="btn btn-sm btn-outline-primary ms-1" title="Save phone">
+                                                <i class="fas fa-save"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                    <td>
                                         {% if subscriber.active %}
                                             <span class="badge bg-success">Active</span>
                                         {% else %}
                                             <span class="badge bg-secondary">Inactive</span>
                                         {% endif %}
+                                    </td>
+                                    <td>
+                                        <form method="POST" action="{{ url_for('toggle_subscriber_sms') }}" class="d-inline">
+                                            <input type="hidden" name="email" value="{{ subscriber.email }}">
+                                            {% if subscriber.sms_enabled %}
+                                                <button type="submit" class="btn btn-sm btn-success" title="SMS enabled - click to disable">
+                                                    <i class="fas fa-sms"></i> On
+                                                </button>
+                                            {% else %}
+                                                <button type="submit" class="btn btn-sm btn-outline-secondary" title="SMS disabled - click to enable">
+                                                    <i class="fas fa-sms"></i> Off
+                                                </button>
+                                            {% endif %}
+                                        </form>
                                     </td>
                                     <td>{{ subscriber.created_at.split(' ')[0] }}</td>
                                     <td>
@@ -97,16 +147,16 @@
                                                 <input type="hidden" name="email" value="{{ subscriber.email }}">
                                                 <button type="submit" class="btn btn-sm {% if subscriber.active %}btn-warning{% else %}btn-success{% endif %}">
                                                     {% if subscriber.active %}
-                                                        <i class="fas fa-pause me-1"></i> Deactivate
+                                                        <i class="fas fa-pause me-1"></i> Pause
                                                     {% else %}
-                                                        <i class="fas fa-play me-1"></i> Activate
+                                                        <i class="fas fa-play me-1"></i> Resume
                                                     {% endif %}
                                                 </button>
                                             </form>
                                             <form method="POST" action="{{ url_for('remove_subscriber') }}">
                                                 <input type="hidden" name="email" value="{{ subscriber.email }}">
                                                 <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to remove this subscriber?')">
-                                                    <i class="fas fa-trash-alt me-1"></i> Remove
+                                                    <i class="fas fa-trash-alt"></i>
                                                 </button>
                                             </form>
                                         </div>

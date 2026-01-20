@@ -6,16 +6,16 @@
 <div class="container-fluid">
     <div class="page-header">
         <div>
-            <div class="page-title">☣️ Hazmat/Spill-Only Subscribers</div>
+            <div class="page-title">Hazmat/Spill-Only Subscribers</div>
             <div class="page-subtitle">Keep hazmat alerts isolated for specialized audiences.</div>
         </div>
     </div>
-    
+
     <div class="alert alert-warning mb-4">
         <i class="fas fa-exclamation-triangle me-2"></i>
         <strong>Hazmat-Only Alerts:</strong> Subscribers in this list will ONLY receive alerts for incidents containing "hazmat" or "spill" keywords. They will not receive alerts for regular traffic incidents, accidents, or stalls.
     </div>
-    
+
     <div class="row">
         <!-- Add Hazmat Subscriber Form -->
         <div class="col-md-12 mb-4">
@@ -45,7 +45,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- Hazmat Subscribers List -->
     <div class="card border-danger">
         <div class="card-header bg-danger text-white">
@@ -63,7 +63,9 @@
                         <thead>
                             <tr>
                                 <th>Email</th>
-                                <th>Status</th>
+                                <th>Phone</th>
+                                <th>Email Status</th>
+                                <th>SMS Status</th>
                                 <th>Subscribed On</th>
                                 <th>Actions</th>
                             </tr>
@@ -76,11 +78,36 @@
                                         {{ subscriber.email }}
                                     </td>
                                     <td>
+                                        <form method="POST" action="{{ url_for('update_hazmat_subscriber_phone') }}" class="d-flex">
+                                            <input type="hidden" name="email" value="{{ subscriber.email }}">
+                                            <input type="tel" class="form-control form-control-sm" name="phone"
+                                                   value="{{ subscriber.phone or '' }}"
+                                                   placeholder="(555) 123-4567" style="width: 130px;">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger ms-1" title="Save phone">
+                                                <i class="fas fa-save"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                    <td>
                                         {% if subscriber.active %}
                                             <span class="badge bg-success">Active</span>
                                         {% else %}
                                             <span class="badge bg-secondary">Inactive</span>
                                         {% endif %}
+                                    </td>
+                                    <td>
+                                        <form method="POST" action="{{ url_for('toggle_hazmat_subscriber_sms') }}" class="d-inline">
+                                            <input type="hidden" name="email" value="{{ subscriber.email }}">
+                                            {% if subscriber.sms_enabled %}
+                                                <button type="submit" class="btn btn-sm btn-success" title="SMS enabled - click to disable">
+                                                    <i class="fas fa-sms"></i> On
+                                                </button>
+                                            {% else %}
+                                                <button type="submit" class="btn btn-sm btn-outline-secondary" title="SMS disabled - click to enable">
+                                                    <i class="fas fa-sms"></i> Off
+                                                </button>
+                                            {% endif %}
+                                        </form>
                                     </td>
                                     <td>{{ subscriber.created_at.split(' ')[0] }}</td>
                                     <td>
@@ -89,16 +116,16 @@
                                                 <input type="hidden" name="email" value="{{ subscriber.email }}">
                                                 <button type="submit" class="btn btn-sm {% if subscriber.active %}btn-warning{% else %}btn-success{% endif %}">
                                                     {% if subscriber.active %}
-                                                        <i class="fas fa-pause me-1"></i> Deactivate
+                                                        <i class="fas fa-pause me-1"></i> Pause
                                                     {% else %}
-                                                        <i class="fas fa-play me-1"></i> Activate
+                                                        <i class="fas fa-play me-1"></i> Resume
                                                     {% endif %}
                                                 </button>
                                             </form>
                                             <form method="POST" action="{{ url_for('remove_hazmat_subscriber') }}">
                                                 <input type="hidden" name="email" value="{{ subscriber.email }}">
                                                 <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to remove this hazmat subscriber?')">
-                                                    <i class="fas fa-trash-alt me-1"></i> Remove
+                                                    <i class="fas fa-trash-alt"></i>
                                                 </button>
                                             </form>
                                         </div>
@@ -115,7 +142,7 @@
             {% endif %}
         </div>
     </div>
-    
+
     <div class="mt-4">
         <a href="{{ url_for('subscribers') }}" class="btn btn-secondary">
             <i class="fas fa-arrow-left me-2"></i> Back to Regular Subscribers
