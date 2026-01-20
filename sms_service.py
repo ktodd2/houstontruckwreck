@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 import pytz
-import telnyx
+import requests
 from models import Database, Subscriber, HazmatSubscriber, SentSMSAlert
 from config import Config
 
@@ -12,11 +12,9 @@ class SMSService:
     def __init__(self):
         self.db = Database()
         self.central_tz = pytz.timezone('America/Chicago')
-
-        # Configure Telnyx
-        if Config.TELNYX_API_KEY:
-            telnyx.api_key = Config.TELNYX_API_KEY
+        self.api_key = Config.TELNYX_API_KEY
         self.from_number = Config.TELNYX_FROM_NUMBER
+        self.api_url = "https://api.telnyx.com/v2/messages"
 
     def get_central_time(self):
         """Get current time in Central Time"""
@@ -74,7 +72,7 @@ class SMSService:
         return msg
 
     def send_sms(self, to_number, message):
-        """Send a single SMS via Telnyx"""
+        """Send a single SMS via Telnyx REST API"""
         if not self.is_configured():
             logger.warning("SMS service not configured - skipping send")
             return False
@@ -84,15 +82,29 @@ class SMSService:
             if not to_number.startswith('+'):
                 to_number = '+1' + to_number.replace('-', '').replace(' ', '').replace('(', '').replace(')', '')
 
-            telnyx.Message.create(
-                from_=self.from_number,
-                to=to_number,
-                text=message
-            )
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {self.api_key}'
+            }
 
-            logger.info(f"SMS sent successfully to {to_number}")
-            return True
+            payload = {
+                'from': self.from_number,
+                'to': to_number,
+                'text': message
+            }
 
+            response = requests.post(self.api_url, headers=headers, json=payload, timeout=30)
+
+            if response.status_code in [200, 201, 202]:
+                logger.info(f"SMS sent successfully to {to_number}")
+                return True
+            else:
+                logger.error(f"Telnyx API error: {response.status_code} - {response.text}")
+                return False
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error sending SMS to {to_number}: {e}")
+            return False
         except Exception as e:
             logger.error(f"Error sending SMS to {to_number}: {e}")
             return False
