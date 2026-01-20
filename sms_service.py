@@ -95,6 +95,9 @@ class SMSService:
 
             response = requests.post(self.api_url, headers=headers, json=payload, timeout=30)
 
+            # Log full response for debugging
+            logger.info(f"Telnyx API response: {response.status_code} - {response.text[:500]}")
+
             if response.status_code in [200, 201, 202]:
                 logger.info(f"SMS sent successfully to {to_number}")
                 return True
