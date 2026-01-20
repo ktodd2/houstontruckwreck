@@ -93,9 +93,6 @@ class SMSService:
             logger.info(f"SMS sent successfully to {to_number}")
             return True
 
-        except telnyx.error.APIError as e:
-            logger.error(f"Telnyx API error sending SMS to {to_number}: {e}")
-            return False
         except Exception as e:
             logger.error(f"Error sending SMS to {to_number}: {e}")
             return False
