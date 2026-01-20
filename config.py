@@ -33,3 +33,9 @@ class Config:
     
     # Alert filtering configuration
     INCLUDE_STALLS = os.environ.get('INCLUDE_STALLS', 'true').lower() == 'true'
+
+    # Telnyx SMS Configuration
+    TELNYX_API_KEY = os.environ.get('TELNYX_API_KEY')
+    TELNYX_FROM_NUMBER = os.environ.get('TELNYX_FROM_NUMBER')
+    SMS_ENABLED = os.environ.get('SMS_ENABLED', 'false').lower() == 'true'
+    SMS_MAX_ALERTS_PER_HOUR = int(os.environ.get('SMS_MAX_ALERTS_PER_HOUR', 20))

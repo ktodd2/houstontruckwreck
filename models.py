@@ -72,6 +72,39 @@ class Database:
                 FOREIGN KEY (incident_id) REFERENCES incidents (id)
             )
         ''')
+
+        # Create sent_sms_alerts table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS sent_sms_alerts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                incident_id INTEGER NOT NULL,
+                phone_number TEXT NOT NULL,
+                sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (incident_id) REFERENCES incidents (id)
+            )
+        ''')
+
+        # Add phone and sms_enabled columns to subscribers if they don't exist
+        try:
+            cursor.execute('ALTER TABLE subscribers ADD COLUMN phone TEXT')
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+
+        try:
+            cursor.execute('ALTER TABLE subscribers ADD COLUMN sms_enabled BOOLEAN DEFAULT 0')
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+
+        # Add phone and sms_enabled columns to hazmat_subscribers if they don't exist
+        try:
+            cursor.execute('ALTER TABLE hazmat_subscribers ADD COLUMN phone TEXT')
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+
+        try:
+            cursor.execute('ALTER TABLE hazmat_subscribers ADD COLUMN sms_enabled BOOLEAN DEFAULT 0')
+        except sqlite3.OperationalError:
+            pass  # Column already exists
         
         # Create admin_users table
         cursor.execute('''
@@ -314,12 +347,47 @@ class Subscriber:
         """Toggle subscriber active status"""
         conn = db.get_connection()
         cursor = conn.cursor()
-        
+
         cursor.execute('UPDATE subscribers SET active = NOT active WHERE email = ?', (email,))
         affected = cursor.rowcount
         conn.commit()
         conn.close()
         return affected > 0
+
+    @staticmethod
+    def update_phone(db, email, phone):
+        """Update subscriber phone number"""
+        conn = db.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute('UPDATE subscribers SET phone = ? WHERE email = ?', (phone, email))
+        affected = cursor.rowcount
+        conn.commit()
+        conn.close()
+        return affected > 0
+
+    @staticmethod
+    def toggle_sms(db, email):
+        """Toggle subscriber SMS status"""
+        conn = db.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute('UPDATE subscribers SET sms_enabled = NOT sms_enabled WHERE email = ?', (email,))
+        affected = cursor.rowcount
+        conn.commit()
+        conn.close()
+        return affected > 0
+
+    @staticmethod
+    def get_all_sms_active(db):
+        """Get all subscribers with SMS enabled"""
+        conn = db.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute('SELECT phone FROM subscribers WHERE active = 1 AND sms_enabled = 1 AND phone IS NOT NULL AND phone != ""')
+        phones = [row[0] for row in cursor.fetchall()]
+        conn.close()
+        return phones
 
 class HazmatSubscriber:
     @staticmethod
@@ -376,12 +444,47 @@ class HazmatSubscriber:
         """Toggle hazmat subscriber active status"""
         conn = db.get_connection()
         cursor = conn.cursor()
-        
+
         cursor.execute('UPDATE hazmat_subscribers SET active = NOT active WHERE email = ?', (email,))
         affected = cursor.rowcount
         conn.commit()
         conn.close()
         return affected > 0
+
+    @staticmethod
+    def update_phone(db, email, phone):
+        """Update hazmat subscriber phone number"""
+        conn = db.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute('UPDATE hazmat_subscribers SET phone = ? WHERE email = ?', (phone, email))
+        affected = cursor.rowcount
+        conn.commit()
+        conn.close()
+        return affected > 0
+
+    @staticmethod
+    def toggle_sms(db, email):
+        """Toggle hazmat subscriber SMS status"""
+        conn = db.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute('UPDATE hazmat_subscribers SET sms_enabled = NOT sms_enabled WHERE email = ?', (email,))
+        affected = cursor.rowcount
+        conn.commit()
+        conn.close()
+        return affected > 0
+
+    @staticmethod
+    def get_all_sms_active(db):
+        """Get all hazmat subscribers with SMS enabled"""
+        conn = db.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute('SELECT phone FROM hazmat_subscribers WHERE active = 1 AND sms_enabled = 1 AND phone IS NOT NULL AND phone != ""')
+        phones = [row[0] for row in cursor.fetchall()]
+        conn.close()
+        return phones
 
 class AdminUser:
     @staticmethod
@@ -425,12 +528,55 @@ class SentAlert:
         """Get count of alerts sent in recent hours"""
         conn = db.get_connection()
         cursor = conn.cursor()
-        
+
         cursor.execute('''
-            SELECT COUNT(*) FROM sent_alerts 
+            SELECT COUNT(*) FROM sent_alerts
             WHERE sent_at > datetime('now', '-{} hours')
         '''.format(hours))
-        
+
         count = cursor.fetchone()[0]
         conn.close()
         return count
+
+
+class SentSMSAlert:
+    @staticmethod
+    def mark_sent(db, incident_id, phone_number):
+        """Mark SMS alert as sent for an incident to a phone number"""
+        conn = db.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute('INSERT INTO sent_sms_alerts (incident_id, phone_number) VALUES (?, ?)',
+                      (incident_id, phone_number))
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def get_recent_count(db, hours=1):
+        """Get count of SMS alerts sent in recent hours"""
+        conn = db.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            SELECT COUNT(*) FROM sent_sms_alerts
+            WHERE sent_at > datetime('now', '-{} hours')
+        '''.format(hours))
+
+        count = cursor.fetchone()[0]
+        conn.close()
+        return count
+
+    @staticmethod
+    def is_already_sent(db, incident_id, phone_number):
+        """Check if SMS was already sent for this incident to this phone"""
+        conn = db.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            SELECT id FROM sent_sms_alerts
+            WHERE incident_id = ? AND phone_number = ?
+        ''', (incident_id, phone_number))
+
+        result = cursor.fetchone()
+        conn.close()
+        return result is not None
