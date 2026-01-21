@@ -12,10 +12,9 @@ from collections import deque
 import pytz
 
 from config import Config
-from models import Database, Incident, Subscriber, HazmatSubscriber, AdminUser, SentAlert, SentSMSAlert, Settings
+from models import Database, Incident, Subscriber, HazmatSubscriber, AdminUser, SentAlert, Settings
 from scraper import TranStarScraper
 from email_service import EmailService
-from sms_service import SMSService
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -54,7 +53,6 @@ login_manager.login_message = 'Please log in to access the admin panel.'
 db = Database()
 scraper = TranStarScraper()
 email_service = EmailService()
-sms_service = SMSService()
 
 # User class for Flask-Login
 class User(UserMixin):
@@ -93,22 +91,10 @@ def scheduled_scrape():
             else:
                 add_scrape_log("❌ Failed to send regular alerts", 'error')
 
-            # Send SMS alerts to SMS-enabled subscribers
-            if sms_service.is_configured():
-                sms_success = sms_service.send_sms_alert(new_incidents)
-                if sms_success:
-                    add_scrape_log("📱 SMS alerts sent successfully", 'info')
-
             # Send hazmat-specific alerts to hazmat subscribers
             hazmat_success = email_service.send_hazmat_alert(new_incidents)
             if hazmat_success:
                 add_scrape_log("✅ Hazmat alerts sent successfully", 'info')
-
-            # Send hazmat SMS alerts
-            if sms_service.is_configured():
-                hazmat_sms_success = sms_service.send_hazmat_sms_alert(new_incidents)
-                if hazmat_sms_success:
-                    add_scrape_log("📱 Hazmat SMS alerts sent successfully", 'info')
         else:
             add_scrape_log("ℹ️  No new incidents found")
             
@@ -288,64 +274,6 @@ def test_email():
     
     return redirect(url_for('subscribers'))
 
-@app.route('/update_subscriber_phone', methods=['POST'])
-@login_required
-def update_subscriber_phone():
-    """Update subscriber phone number"""
-    email = request.form['email']
-    phone = request.form.get('phone', '').strip()
-
-    # Basic phone validation (digits, dashes, spaces, parentheses allowed)
-    if phone:
-        phone_clean = re.sub(r'[\s\-\(\)]', '', phone)
-        if not phone_clean.isdigit() or len(phone_clean) < 10:
-            flash('Invalid phone number format. Use 10+ digits.', 'error')
-            return redirect(url_for('subscribers'))
-
-    if Subscriber.update_phone(db, email, phone):
-        flash(f'Phone number updated for {email}!', 'success')
-    else:
-        flash(f'Subscriber {email} not found', 'error')
-
-    return redirect(url_for('subscribers'))
-
-@app.route('/toggle_subscriber_sms', methods=['POST'])
-@login_required
-def toggle_subscriber_sms():
-    """Toggle subscriber SMS status"""
-    email = request.form['email']
-
-    if Subscriber.toggle_sms(db, email):
-        flash(f'SMS status updated for {email}!', 'success')
-    else:
-        flash(f'Subscriber {email} not found', 'error')
-
-    return redirect(url_for('subscribers'))
-
-@app.route('/test_sms', methods=['POST'])
-@login_required
-def test_sms():
-    """Send test SMS"""
-    phone = request.form['phone'].strip()
-
-    # Basic phone validation
-    phone_clean = re.sub(r'[\s\-\(\)]', '', phone)
-    if not phone_clean.isdigit() or len(phone_clean) < 10:
-        flash('Invalid phone number format', 'error')
-        return redirect(url_for('subscribers'))
-
-    if not sms_service.is_configured():
-        flash('SMS service not configured. Set TELNYX_API_KEY and TELNYX_FROM_NUMBER in environment.', 'error')
-        return redirect(url_for('subscribers'))
-
-    success = sms_service.send_test_sms(phone)
-
-    if success:
-        flash(f'Test SMS sent successfully to {phone}!', 'success')
-    else:
-        flash(f'Failed to send test SMS to {phone}', 'error')
-
-    return redirect(url_for('subscribers'))
 
 @app.route('/hazmat_subscribers')
 @login_required
@@ -399,39 +327,6 @@ def toggle_hazmat_subscriber():
     
     return redirect(url_for('hazmat_subscribers'))
 
-@app.route('/update_hazmat_subscriber_phone', methods=['POST'])
-@login_required
-def update_hazmat_subscriber_phone():
-    """Update hazmat subscriber phone number"""
-    email = request.form['email']
-    phone = request.form.get('phone', '').strip()
-
-    # Basic phone validation
-    if phone:
-        phone_clean = re.sub(r'[\s\-\(\)]', '', phone)
-        if not phone_clean.isdigit() or len(phone_clean) < 10:
-            flash('Invalid phone number format. Use 10+ digits.', 'error')
-            return redirect(url_for('hazmat_subscribers'))
-
-    if HazmatSubscriber.update_phone(db, email, phone):
-        flash(f'Phone number updated for {email}!', 'success')
-    else:
-        flash(f'Hazmat subscriber {email} not found', 'error')
-
-    return redirect(url_for('hazmat_subscribers'))
-
-@app.route('/toggle_hazmat_subscriber_sms', methods=['POST'])
-@login_required
-def toggle_hazmat_subscriber_sms():
-    """Toggle hazmat subscriber SMS status"""
-    email = request.form['email']
-
-    if HazmatSubscriber.toggle_sms(db, email):
-        flash(f'SMS status updated for {email}!', 'success')
-    else:
-        flash(f'Hazmat subscriber {email} not found', 'error')
-
-    return redirect(url_for('hazmat_subscribers'))
 
 @app.route('/manual_scrape', methods=['POST'])
 @login_required
@@ -453,13 +348,6 @@ def manual_scrape():
             else:
                 add_scrape_log("❌ Failed to send alerts", 'error')
                 flash(f'Manual scrape found {len(new_incidents)} new incidents but failed to send alerts.', 'error')
-
-            # Send SMS alerts
-            if sms_service.is_configured():
-                sms_success = sms_service.send_sms_alert(new_incidents)
-                if sms_success:
-                    add_scrape_log("📱 SMS alerts sent successfully")
-                sms_service.send_hazmat_sms_alert(new_incidents)
         else:
             add_scrape_log("ℹ️  Manual scrape: No new incidents found")
             flash('Manual scrape completed! No new incidents found.', 'info')
@@ -567,8 +455,7 @@ def health():
     checks = {
         "database": False,
         "scheduler": False,
-        "email_configured": False,
-        "sms_configured": False
+        "email_configured": False
     }
 
     # Check database connectivity
@@ -586,11 +473,8 @@ def health():
     # Check email is configured
     checks["email_configured"] = bool(Config.EMAIL_USERNAME and Config.EMAIL_PASSWORD)
 
-    # Check SMS is configured
-    checks["sms_configured"] = sms_service.is_configured()
-
     # Determine overall health
-    # App is healthy if database and scheduler work (email/sms config is a warning, not failure)
+    # App is healthy if database and scheduler work (email config is a warning, not failure)
     is_healthy = checks["database"] and checks["scheduler"]
 
     return jsonify({

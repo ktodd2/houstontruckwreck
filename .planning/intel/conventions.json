@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "updated": 1737407000000,
+  "naming": {
+    "exports": {
+      "dominant": "snake_case",
+      "count": 54,
+      "percentage": 70,
+      "notes": "Functions use snake_case (e.g., add_scrape_log, test_email_service), classes use PascalCase (e.g., EmailService, TranStarScraper)"
+    },
+    "classes": {
+      "dominant": "PascalCase",
+      "count": 14,
+      "percentage": 100
+    }
+  },
+  "directories": {
+    "templates": {
+      "purpose": "Jinja2 HTML templates for Flask views",
+      "files": 8
+    },
+    "root": {
+      "purpose": "Flat Python module structure - all core modules at root level",
+      "files": 13
+    }
+  },
+  "suffixes": {
+    "_test.py": {
+      "purpose": "Test files",
+      "count": 0
+    },
+    "test_*.py": {
+      "purpose": "Test files (prefix pattern)",
+      "count": 3
+    }
+  },
+  "language": {
+    "primary": "Python",
+    "percentage": 100,
+    "framework": "Flask",
+    "database": "SQLite"
+  },
+  "patterns": {
+    "entry_points": ["app.py", "main.py", "wsgi.py", "start_app.py"],
+    "config": ["config.py", ".env"],
+    "models": ["models.py"],
+    "services": ["email_service.py", "scraper.py", "improved_scraper.py", "selenium_scraper.py"],
+    "tests": ["test_improvements.py", "test_incident_detection.py", "test_system.py"]
+  }
+}
