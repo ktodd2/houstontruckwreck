@@ -115,8 +115,8 @@ class Database:
         # Add default subscribers if they don't exist
         default_subscribers = [
             'ktoddizzle@icloud.com',
-            'branhar01@gmail.com',
-            'ralaniz911@yahoo.com'
+            'ralaniz911@yahoo.com',
+            'tc.jacetransportation@yahoo.com'
         ]
         
         for email in default_subscribers:
@@ -130,7 +130,8 @@ class Database:
         
         # Add default hazmat subscribers if they don't exist
         default_hazmat_subscribers = [
-            'ralaniz911@yahoo.com'
+            'ralaniz911@yahoo.com',
+            'rayramon911@icloud.com'
         ]
         
         for email in default_hazmat_subscribers:
