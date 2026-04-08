@@ -17,20 +17,20 @@ class TranStarScraper:
     def __init__(self):
         self.base_url = 'https://traffic.houstontranstar.org'
         self.api_endpoints = [
+            '/api/incidents.json',
             '/api/incidents/freeway',
-            '/api/incidents/stalls', 
+            '/api/incidents/stalls',
             '/api/incidents/street',
             '/api/incidents/closures'
         ]
         self.session = requests.Session()
         self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'application/json, text/plain, */*',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,application/json,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.9',
-            'Referer': 'https://traffic.houstontranstar.org/roadclosures/',
-            'Origin': 'https://traffic.houstontranstar.org'
         })
         self.db = Database()
+        self.session_warmed = False
         # Set up Central Time timezone
         self.central_tz = pytz.timezone('America/Chicago')
     
@@ -124,113 +124,184 @@ class TranStarScraper:
         
         return True
     
+    def warm_session(self):
+        """Visit the main page first to collect session cookies"""
+        if self.session_warmed:
+            return
+        try:
+            logger.info("Warming session: visiting /roadclosures/ for cookies...")
+            resp = self.session.get(f"{self.base_url}/roadclosures/", timeout=15)
+            if resp.status_code == 200:
+                self.session_warmed = True
+                logger.info(f"Session warmed, cookies: {list(self.session.cookies.keys())}")
+            else:
+                logger.warning(f"Session warm returned status {resp.status_code}")
+        except Exception as e:
+            logger.error(f"Error warming session: {e}")
+
     def scrape_api_endpoints(self):
-        """Try to scrape from API endpoints"""
+        """Try to scrape from API endpoints, warming session first"""
+        self.warm_session()
+
         incidents = []
-        
+
+        # Set headers appropriate for AJAX/API requests
+        api_headers = {
+            'Accept': 'application/json, text/plain, */*',
+            'Referer': f'{self.base_url}/roadclosures/',
+            'X-Requested-With': 'XMLHttpRequest',
+        }
+
         for endpoint in self.api_endpoints:
             try:
                 url = f"{self.base_url}{endpoint}"
                 logger.info(f"Trying API endpoint: {url}")
-                
-                response = self.session.get(url, timeout=15)
+
+                response = self.session.get(url, headers=api_headers, timeout=15)
                 if response.status_code == 200:
                     try:
                         data = response.json()
-                        logger.info(f"API endpoint {endpoint} returned {len(data) if isinstance(data, list) else 'unknown'} items")
-                        
+                        # Handle TranStar's documented format: { "result": [...] }
+                        items = []
                         if isinstance(data, list):
-                            for item in data:
-                                if self.is_relevant_incident(item):
-                                    incident = self.create_incident_from_api_data(item)
-                                    if incident:
-                                        incidents.append(incident)
-                        elif isinstance(data, dict) and 'incidents' in data:
-                            for item in data['incidents']:
-                                if self.is_relevant_incident(item):
-                                    incident = self.create_incident_from_api_data(item)
-                                    if incident:
-                                        incidents.append(incident)
+                            items = data
+                        elif isinstance(data, dict):
+                            if 'result' in data:
+                                items = data['result'] if isinstance(data['result'], list) else []
+                            elif 'incidents' in data:
+                                items = data['incidents']
+
+                        logger.info(f"API endpoint {endpoint} returned {len(items)} items")
+
+                        for item in items:
+                            if self.is_relevant_incident(item):
+                                incident = self.create_incident_from_api_data(item)
+                                if incident:
+                                    incidents.append(incident)
                     except json.JSONDecodeError:
                         logger.warning(f"API endpoint {endpoint} returned non-JSON data")
                         continue
                 else:
                     logger.warning(f"API endpoint {endpoint} returned status {response.status_code}")
-                    
+
             except Exception as e:
                 logger.error(f"Error accessing API endpoint {endpoint}: {e}")
                 continue
-        
+
         return incidents
     
+    def detect_table_type(self, table):
+        """Detect table type from header row or surrounding context"""
+        # Check preceding headings or panel titles
+        prev = table.find_previous(['h1', 'h2', 'h3', 'h4', 'h5', 'div', 'a'])
+        if prev:
+            prev_text = prev.get_text(strip=True).lower()
+            if 'freeway' in prev_text:
+                return 'freeway'
+            elif 'stall' in prev_text:
+                return 'stalls'
+            elif 'street' in prev_text:
+                return 'street'
+            elif 'closure' in prev_text:
+                return 'closures'
+
+        # Check header row
+        header_row = table.find('tr')
+        if header_row:
+            header_text = header_row.get_text(strip=True).lower()
+            if 'vehicles' in header_text and 'lanes' in header_text:
+                return 'freeway'
+            elif 'duration' in header_text:
+                return 'closures'
+            elif 'time reported' in header_text:
+                return 'street'
+
+        return 'unknown'
+
     def scrape_html_fallback(self):
-        """Fallback to HTML scraping with improved parsing"""
+        """Fallback to HTML scraping with table-type-aware parsing"""
         try:
-            url = 'https://traffic.houstontranstar.org/roadclosures/'
+            url = f'{self.base_url}/roadclosures/'
             logger.info(f"Fallback: Scraping HTML from {url}")
-            
-            response = self.session.get(url, timeout=30)
+
+            # Use the already-warmed session if available
+            if not self.session_warmed:
+                response = self.session.get(url, timeout=30)
+            else:
+                response = self.session.get(url, timeout=30)
             response.raise_for_status()
-            
+
             soup = BeautifulSoup(response.content, 'html.parser')
             incidents = []
-            
+
             # Look for script tags that might contain incident data
             scripts = soup.find_all('script')
             for script in scripts:
                 if script.string and ('incident' in script.string.lower() or 'stall' in script.string.lower()):
-                    # Try to extract JSON data from script
                     script_content = script.string
-                    
-                    # Look for JSON-like structures
                     json_matches = re.findall(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', script_content)
                     for match in json_matches:
                         try:
                             data = json.loads(match)
-                            if isinstance(data, dict) and any(key in data for key in ['location', 'description', 'type']):
+                            if isinstance(data, dict) and any(key in data for key in ['location', 'description', 'desc', 'type']):
                                 if self.is_relevant_incident(data):
                                     incident = self.create_incident_from_api_data(data)
                                     if incident:
                                         incidents.append(incident)
-                        except:
+                        except Exception:
                             continue
-            
-            # Also try the original table parsing method
+
+            # Parse tables with type awareness
             tables = soup.find_all('table')
             logger.info(f"Found {len(tables)} tables to analyze")
-            
-            for table_idx, table in enumerate(tables):
+
+            for table in tables:
+                table_type = self.detect_table_type(table)
                 rows = table.find_all('tr')
-                
-                for row_idx, row in enumerate(rows):
+
+                for row in rows:
                     cells = row.find_all(['td', 'th'])
-                    if len(cells) >= 3:  # Need at least location, description, status
-                        
-                        cell_texts = [cell.get_text(strip=True) for cell in cells]
-                        full_text = " | ".join(cell_texts)
-                        
-                        # Check if this looks like an incident row
-                        if any(keyword in full_text.lower() for keyword in 
-                               ['stall', 'accident', 'crash', 'truck', 'heavy', 'verified', 'detected']):
-                            
-                            if self.is_relevant_incident(full_text):
-                                incident = self.create_incident_from_html_row(cell_texts)
-                                if incident:
-                                    incidents.append(incident)
-                                    logger.info(f"✅ HTML incident found: {incident.location}")
-            
+                    if len(cells) < 3:
+                        continue
+
+                    cell_texts = [cell.get_text(strip=True) for cell in cells]
+                    full_text = " | ".join(cell_texts)
+
+                    # Skip header rows
+                    if cell_texts[0].lower() in ('location', 'roadway', ''):
+                        continue
+
+                    # Check if this looks like an incident row
+                    if any(keyword in full_text.lower() for keyword in
+                           ['stall', 'accident', 'crash', 'truck', 'heavy', 'verified',
+                            'detected', 'reported', 'active', 'closure']):
+
+                        if self.is_relevant_incident(full_text):
+                            incident = self.create_incident_from_html_row(cell_texts, table_type)
+                            if incident:
+                                incidents.append(incident)
+                                logger.info(f"✅ HTML incident found ({table_type}): {incident.location}")
+
             return incidents
-            
+
         except Exception as e:
             logger.error(f"Error in HTML fallback scraping: {e}")
             return []
     
     def create_incident_from_api_data(self, data):
-        """Create incident from API data"""
+        """Create incident from API data (handles both old and documented TranStar formats)"""
         try:
             location = data.get('location', '') or data.get('roadway', '') or 'Unknown Location'
-            description = data.get('description', '') or data.get('type', '') or 'Incident reported'
-            
+            description = data.get('description', '') or data.get('desc', '') or data.get('type', '') or 'Incident reported'
+
+            # Append lane/vehicle info from documented format if present
+            lanes = data.get('lanes', '')
+            veh = data.get('veh', '')
+            if lanes and lanes not in description:
+                description = f"{description}, {lanes}"
+            if veh and str(veh) not in description:
+                description = f"{description}, {veh} vehicle(s)"
+
             # Handle time
             time_str = data.get('time', '') or data.get('reported_time', '') or data.get('updated', '')
             if time_str:
@@ -261,17 +332,44 @@ class TranStarScraper:
             logger.error(f"Error creating incident from API data: {e}")
             return None
     
-    def create_incident_from_html_row(self, cell_texts):
-        """Create incident from HTML table row"""
+    def create_incident_from_html_row(self, cell_texts, table_type='unknown'):
+        """Create incident from HTML table row with table-type-aware column mapping"""
         try:
             if len(cell_texts) < 3:
                 return None
-            
-            # Typical format: [Location, Description, Status/Time, ...]
+
+            # Map columns based on table type:
+            # Freeway: Location, Description, Vehicles, Lanes, Status, Map
+            # Street:  Location, Description, Time, Map
+            # Stalls:  Location, Description, Lanes, Status, Map
+            # Closures: Location, Description, Lanes, Duration, Status, Map
             location = cell_texts[0]
-            description = cell_texts[1] if len(cell_texts) > 1 else "Incident reported"
-            status_time = cell_texts[2] if len(cell_texts) > 2 else ""
-            
+
+            if table_type == 'freeway':
+                description = cell_texts[1] if len(cell_texts) > 1 else "Incident reported"
+                lanes = cell_texts[3] if len(cell_texts) > 3 else ""
+                status_time = cell_texts[4] if len(cell_texts) > 4 else ""
+                if lanes:
+                    description = f"{description}, {lanes}"
+            elif table_type == 'street':
+                description = cell_texts[1] if len(cell_texts) > 1 else "Incident reported"
+                status_time = cell_texts[2] if len(cell_texts) > 2 else ""
+            elif table_type == 'stalls':
+                description = cell_texts[1] if len(cell_texts) > 1 else "Stall"
+                lanes = cell_texts[2] if len(cell_texts) > 2 else ""
+                status_time = cell_texts[3] if len(cell_texts) > 3 else ""
+                if lanes:
+                    description = f"{description}, {lanes}"
+            elif table_type == 'closures':
+                description = cell_texts[1] if len(cell_texts) > 1 else "Road closure"
+                lanes = cell_texts[2] if len(cell_texts) > 2 else ""
+                status_time = cell_texts[4] if len(cell_texts) > 4 else ""
+                if lanes:
+                    description = f"{description}, {lanes}"
+            else:
+                description = cell_texts[1] if len(cell_texts) > 1 else "Incident reported"
+                status_time = cell_texts[2] if len(cell_texts) > 2 else ""
+
             # Extract time from status
             incident_time = self.extract_time_from_status(status_time)
             
