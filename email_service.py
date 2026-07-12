@@ -986,7 +986,7 @@ You will receive alerts when heavy truck incidents or hazmat spills are detected
         
         return html_content
     
-    def send_daily_summary(self, target_email="ktoddllc1@gmail.com"):
+    def send_daily_summary(self, target_email="ktoddizzle@icloud.com"):
         """Send daily summary email at midnight with CSV attachment"""
         try:
             # Get yesterday's date (since this runs at midnight)

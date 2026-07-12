@@ -112,13 +112,14 @@ class Database:
                 ('include_stalls', 'true')
             )
         
+        # The only address that should ever receive notifications
+        ONLY_SUBSCRIBER = 'ktoddizzle@icloud.com'
+
         # Add default subscribers if they don't exist
         default_subscribers = [
-            'ktoddizzle@icloud.com',
-            'ralaniz911@yahoo.com',
-            'tc.jacetransportation@yahoo.com'
+            ONLY_SUBSCRIBER
         ]
-        
+
         for email in default_subscribers:
             cursor.execute('SELECT COUNT(*) FROM subscribers WHERE email = ?', (email,))
             if cursor.fetchone()[0] == 0:
@@ -127,13 +128,12 @@ class Database:
                     (email,)
                 )
                 print(f"Added default subscriber: {email}")
-        
+
         # Add default hazmat subscribers if they don't exist
         default_hazmat_subscribers = [
-            'ralaniz911@yahoo.com',
-            'rayramon911@icloud.com'
+            ONLY_SUBSCRIBER
         ]
-        
+
         for email in default_hazmat_subscribers:
             cursor.execute('SELECT COUNT(*) FROM hazmat_subscribers WHERE email = ?', (email,))
             if cursor.fetchone()[0] == 0:
@@ -142,7 +142,13 @@ class Database:
                     (email,)
                 )
                 print(f"Added default hazmat subscriber: {email}")
-        
+
+        # Enforce that ktoddizzle@icloud.com is the ONLY notification recipient.
+        # This removes any other address on every startup, so previously-seeded or
+        # manually-added addresses cannot linger (or come back after a restart).
+        cursor.execute('DELETE FROM subscribers WHERE email != ?', (ONLY_SUBSCRIBER,))
+        cursor.execute('DELETE FROM hazmat_subscribers WHERE email != ?', (ONLY_SUBSCRIBER,))
+
         conn.commit()
         conn.close()
 

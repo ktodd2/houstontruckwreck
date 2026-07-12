@@ -105,7 +105,7 @@ def send_daily_summary():
     """Background task to send daily summary email at midnight"""
     try:
         logger.info("🕛 Running daily summary task...")
-        success = email_service.send_daily_summary(target_email="ktoddllc1@gmail.com")
+        success = email_service.send_daily_summary(target_email="ktoddizzle@icloud.com")
         
         if success:
             logger.info("✅ Daily summary sent successfully")
@@ -363,10 +363,10 @@ def manual_scrape():
 def test_daily_summary():
     """Manually trigger daily summary email (for testing)"""
     try:
-        success = email_service.send_daily_summary(target_email="ktoddllc1@gmail.com")
+        success = email_service.send_daily_summary(target_email="ktoddizzle@icloud.com")
         
         if success:
-            flash('Daily summary email sent successfully to ktoddllc1@gmail.com!', 'success')
+            flash('Daily summary email sent successfully to ktoddizzle@icloud.com!', 'success')
         else:
             flash('Failed to send daily summary email.', 'error')
             
