@@ -49,9 +49,15 @@ class Database:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 email TEXT UNIQUE NOT NULL,
                 active BOOLEAN DEFAULT 1,
+                receive_stalls BOOLEAN DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+
+        # Migrate existing databases that predate the receive_stalls column
+        cursor.execute("PRAGMA table_info(subscribers)")
+        if 'receive_stalls' not in [row[1] for row in cursor.fetchall()]:
+            cursor.execute('ALTER TABLE subscribers ADD COLUMN receive_stalls BOOLEAN DEFAULT 1')
         
         # Create hazmat_subscribers table (for hazmat/spill-only alerts)
         cursor.execute('''
@@ -112,29 +118,29 @@ class Database:
                 ('include_stalls', 'true')
             )
         
-        # The only address that should ever receive notifications
-        ONLY_SUBSCRIBER = 'ktoddizzle@icloud.com'
+        # Addresses permitted to receive notifications, with each address's stall
+        # preference: (email, receive_stalls). Ralaniz and Rayramon opted out of
+        # stall alerts (they still receive wreck and hazmat alerts).
+        ALLOWED_SUBSCRIBERS = [
+            ('ktoddizzle@icloud.com', 1),
+            ('Ralaniz911@yahoo.com', 0),
+            ('Rayramon911@icloud.com', 0),
+        ]
+        ALLOWED_EMAILS = [email for email, _ in ALLOWED_SUBSCRIBERS]
 
         # Add default subscribers if they don't exist
-        default_subscribers = [
-            ONLY_SUBSCRIBER
-        ]
-
-        for email in default_subscribers:
+        for email, receive_stalls in ALLOWED_SUBSCRIBERS:
             cursor.execute('SELECT COUNT(*) FROM subscribers WHERE email = ?', (email,))
             if cursor.fetchone()[0] == 0:
                 cursor.execute(
-                    'INSERT INTO subscribers (email, active) VALUES (?, 1)',
-                    (email,)
+                    'INSERT INTO subscribers (email, active, receive_stalls) VALUES (?, 1, ?)',
+                    (email, receive_stalls)
                 )
                 print(f"Added default subscriber: {email}")
 
-        # Add default hazmat subscribers if they don't exist
-        default_hazmat_subscribers = [
-            ONLY_SUBSCRIBER
-        ]
-
-        for email in default_hazmat_subscribers:
+        # Add default hazmat subscribers if they don't exist (stall preference does
+        # not apply to the hazmat list)
+        for email in ALLOWED_EMAILS:
             cursor.execute('SELECT COUNT(*) FROM hazmat_subscribers WHERE email = ?', (email,))
             if cursor.fetchone()[0] == 0:
                 cursor.execute(
@@ -143,11 +149,17 @@ class Database:
                 )
                 print(f"Added default hazmat subscriber: {email}")
 
-        # Enforce that ktoddizzle@icloud.com is the ONLY notification recipient.
-        # This removes any other address on every startup, so previously-seeded or
-        # manually-added addresses cannot linger (or come back after a restart).
-        cursor.execute('DELETE FROM subscribers WHERE email != ?', (ONLY_SUBSCRIBER,))
-        cursor.execute('DELETE FROM hazmat_subscribers WHERE email != ?', (ONLY_SUBSCRIBER,))
+        # Enforce the allowlist on every startup: remove any address that is not
+        # permitted, so previously-seeded or manually-added addresses cannot linger
+        # (or come back after a restart).
+        placeholders = ','.join('?' for _ in ALLOWED_EMAILS)
+        cursor.execute(f'DELETE FROM subscribers WHERE email NOT IN ({placeholders})', ALLOWED_EMAILS)
+        cursor.execute(f'DELETE FROM hazmat_subscribers WHERE email NOT IN ({placeholders})', ALLOWED_EMAILS)
+
+        # Enforce each address's stall preference on every startup so it stays
+        # deterministic regardless of prior state.
+        for email, receive_stalls in ALLOWED_SUBSCRIBERS:
+            cursor.execute('UPDATE subscribers SET receive_stalls = ? WHERE email = ?', (receive_stalls, email))
 
         conn.commit()
         conn.close()
@@ -306,7 +318,21 @@ class Subscriber:
         subscribers = [row[0] for row in cursor.fetchall()]
         conn.close()
         return subscribers
-    
+
+    @staticmethod
+    def get_all_active_with_stalls(db):
+        """Get all active subscribers with their stall preference.
+
+        Returns a list of (email, receive_stalls_bool) tuples.
+        """
+        conn = db.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute('SELECT email, receive_stalls FROM subscribers WHERE active = 1')
+        subscribers = [(row[0], bool(row[1])) for row in cursor.fetchall()]
+        conn.close()
+        return subscribers
+
     @staticmethod
     def get_all(db):
         """Get all subscribers with details"""
