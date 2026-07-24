@@ -112,13 +112,14 @@ class Database:
                 ('include_stalls', 'true')
             )
         
-        # The only address that should ever receive notifications
-        ONLY_SUBSCRIBER = 'ktoddizzle@icloud.com'
+        # Addresses permitted to receive notifications
+        ALLOWED_SUBSCRIBERS = [
+            'ktoddizzle@icloud.com',
+            'Ralaniz911@yahoo.com',
+        ]
 
         # Add default subscribers if they don't exist
-        default_subscribers = [
-            ONLY_SUBSCRIBER
-        ]
+        default_subscribers = list(ALLOWED_SUBSCRIBERS)
 
         for email in default_subscribers:
             cursor.execute('SELECT COUNT(*) FROM subscribers WHERE email = ?', (email,))
@@ -130,9 +131,7 @@ class Database:
                 print(f"Added default subscriber: {email}")
 
         # Add default hazmat subscribers if they don't exist
-        default_hazmat_subscribers = [
-            ONLY_SUBSCRIBER
-        ]
+        default_hazmat_subscribers = list(ALLOWED_SUBSCRIBERS)
 
         for email in default_hazmat_subscribers:
             cursor.execute('SELECT COUNT(*) FROM hazmat_subscribers WHERE email = ?', (email,))
@@ -143,11 +142,12 @@ class Database:
                 )
                 print(f"Added default hazmat subscriber: {email}")
 
-        # Enforce that ktoddizzle@icloud.com is the ONLY notification recipient.
-        # This removes any other address on every startup, so previously-seeded or
-        # manually-added addresses cannot linger (or come back after a restart).
-        cursor.execute('DELETE FROM subscribers WHERE email != ?', (ONLY_SUBSCRIBER,))
-        cursor.execute('DELETE FROM hazmat_subscribers WHERE email != ?', (ONLY_SUBSCRIBER,))
+        # Enforce the allowlist on every startup: remove any address that is not
+        # permitted, so previously-seeded or manually-added addresses cannot linger
+        # (or come back after a restart).
+        placeholders = ','.join('?' for _ in ALLOWED_SUBSCRIBERS)
+        cursor.execute(f'DELETE FROM subscribers WHERE email NOT IN ({placeholders})', ALLOWED_SUBSCRIBERS)
+        cursor.execute(f'DELETE FROM hazmat_subscribers WHERE email NOT IN ({placeholders})', ALLOWED_SUBSCRIBERS)
 
         conn.commit()
         conn.close()
