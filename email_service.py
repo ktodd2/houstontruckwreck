@@ -295,61 +295,45 @@ Generated: {self.format_central_time()}
         
         return text_content
     
-    def send_alert(self, incidents):
-        """Send email alert for new incidents"""
-        if not incidents:
-            logger.info("No incidents to send alerts for")
-            return False
-        
-        # Check rate limiting
-        recent_alerts = SentAlert.get_recent_count(self.db, hours=1)
-        if recent_alerts >= Config.MAX_ALERTS_PER_HOUR:
-            logger.warning(f"Rate limit exceeded: {recent_alerts} alerts sent in last hour")
-            return False
-        
-        # Get active subscribers
-        subscribers = Subscriber.get_all_active(self.db)
-        if not subscribers:
-            logger.warning("No active subscribers to send alerts to")
-            return False
-        
-        # Validate email configuration
-        if not all([self.username, self.password, self.from_email]):
-            logger.error("Email configuration incomplete")
-            return False
-        
+    @staticmethod
+    def _is_stall_incident(incident):
+        """Return True if an incident is a stall/breakdown (matches scraper.py)."""
+        desc_lower = incident.description.lower()
+        return 'stall' in desc_lower or 'breakdown' in desc_lower
+
+    def _send_incident_email(self, incidents, recipients):
+        """Build and send one alert email for the given incidents to recipients.
+
+        Returns True on success, False on failure.
+        """
         try:
             # Create email content
             subject, html_content = self.create_html_email(incidents)
             text_content = self.create_text_email(incidents)
-            
+
             # Create email message
             msg = MIMEMultipart("alternative")
             msg["Subject"] = subject
             msg["From"] = self.from_email
-            msg["To"] = ", ".join(subscribers)
-            
+            msg["To"] = ", ".join(recipients)
+
             # Attach both text and HTML versions
             text_part = MIMEText(text_content, "plain")
             html_part = MIMEText(html_content, "html")
-            
+
             msg.attach(text_part)
             msg.attach(html_part)
-            
+
             # Send email
             context = ssl.create_default_context()
             with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
                 server.starttls(context=context)
                 server.login(self.username, self.password)
                 server.send_message(msg)
-            
-            # Mark incidents as sent
-            for incident, incident_id in incidents:
-                SentAlert.mark_sent(self.db, incident_id)
-            
-            logger.info(f"✅ Alert sent successfully to {len(subscribers)} subscribers for {len(incidents)} incidents")
+
+            logger.info(f"✅ Alert sent successfully to {len(recipients)} subscribers for {len(incidents)} incidents")
             return True
-            
+
         except smtplib.SMTPAuthenticationError:
             logger.error("❌ Email authentication failed - check username/password")
             return False
@@ -359,6 +343,59 @@ Generated: {self.format_central_time()}
         except Exception as e:
             logger.error(f"❌ Unexpected error sending email: {e}")
             return False
+
+    def send_alert(self, incidents):
+        """Send email alert for new incidents.
+
+        Subscribers who have opted out of stall alerts do not receive stall/
+        breakdown incidents, while other subscribers receive all incidents.
+        """
+        if not incidents:
+            logger.info("No incidents to send alerts for")
+            return False
+
+        # Check rate limiting
+        recent_alerts = SentAlert.get_recent_count(self.db, hours=1)
+        if recent_alerts >= Config.MAX_ALERTS_PER_HOUR:
+            logger.warning(f"Rate limit exceeded: {recent_alerts} alerts sent in last hour")
+            return False
+
+        # Get active subscribers with their stall preference
+        subscriber_prefs = Subscriber.get_all_active_with_stalls(self.db)
+        if not subscriber_prefs:
+            logger.warning("No active subscribers to send alerts to")
+            return False
+
+        # Validate email configuration
+        if not all([self.username, self.password, self.from_email]):
+            logger.error("Email configuration incomplete")
+            return False
+
+        # Split incidents and recipients by stall preference
+        non_stall_incidents = [item for item in incidents if not self._is_stall_incident(item[0])]
+        stall_ok_recipients = [email for email, wants_stalls in subscriber_prefs if wants_stalls]
+        no_stall_recipients = [email for email, wants_stalls in subscriber_prefs if not wants_stalls]
+
+        any_sent = False
+
+        # Recipients who want everything get all incidents (including stalls)
+        if stall_ok_recipients:
+            if self._send_incident_email(incidents, stall_ok_recipients):
+                any_sent = True
+
+        # Recipients who opted out of stalls only get non-stall incidents
+        if no_stall_recipients and non_stall_incidents:
+            if self._send_incident_email(non_stall_incidents, no_stall_recipients):
+                any_sent = True
+
+        # Mark incidents as sent (preserve existing dedup semantics: once any
+        # email for this batch goes out, the whole batch is considered handled)
+        if any_sent:
+            for incident, incident_id in incidents:
+                SentAlert.mark_sent(self.db, incident_id)
+            return True
+
+        return False
     
     def send_hazmat_alert(self, incidents):
         """Send email alert for hazmat/spill incidents only to hazmat subscribers"""
