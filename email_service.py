@@ -797,8 +797,8 @@ You will receive alerts when heavy truck incidents or hazmat spills are detected
             else:
                 bg_color = "#ffffff"  # White for low severity
             
-            # Create Google Maps link - replace "at" with "and" for better intersection recognition
-            location_formatted = incident['location'].replace(' at ', ' and ').replace(' AT ', ' and ')
+            # Create Google Maps link - replace "at" and "@" with "and" for better intersection recognition
+            location_formatted = incident['location'].replace(' @ ', ' and ').replace('@', ' and ').replace(' at ', ' and ').replace(' AT ', ' and ')
             location_query = urllib.parse.quote(f"{location_formatted} Houston TX")
             maps_link = f"https://www.google.com/maps/search/?api=1&query={location_query}"
             

@@ -511,8 +511,21 @@ def _incident_payload(row):
         'severity': row['severity'],
         'category': classify_incident(f"{location} {description}"),
         'map_url': ('https://www.google.com/maps/search/?api=1&query='
-                    + quote_plus(location)) if location else None,
+                    + _maps_query(location)) if location else None,
     }
+
+
+def _maps_query(location):
+    """URL-encode a TranStar location for a Google Maps search link.
+
+    Google Maps reads 'Main St and Elm St' as an intersection but chokes on
+    the 'Main St @ Elm St' form TranStar uses, so swap the separators the way
+    the email alerts and admin dashboard already do, and anchor the search to
+    Houston so a generic street pair doesn't land in another city.
+    """
+    formatted = (location.replace(' @ ', ' and ').replace('@', ' and ')
+                 .replace(' at ', ' and ').replace(' AT ', ' and '))
+    return quote_plus(formatted + ' Houston TX')
 
 
 # A briefing card stops being shown once it is this old, so a task that
