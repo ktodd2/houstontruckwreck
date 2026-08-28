@@ -5,10 +5,14 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
 import atexit
+import hmac
+import json
 import logging
+import os
 from datetime import datetime, timedelta
 import re
 from collections import deque
+from urllib.parse import quote_plus
 import pytz
 
 from config import Config
@@ -448,6 +452,224 @@ def api_scrape_logs():
     logs_list = list(scrape_logs)
     logs_list.reverse()
     return jsonify(logs_list)
+
+# ---------------------------------------------------------------------------
+# Live wall dashboard
+# ---------------------------------------------------------------------------
+
+# Keyword sets used to bucket an incident into a lane on the live wall.
+HAZMAT_KEYWORDS = ('hazmat', 'hazardous material', 'chemical', 'spill',
+                   'leak', 'leaking', 'fuel spill', 'oil spill')
+WRECK_KEYWORDS = ('accident', 'crash', 'collision', 'rollover', 'roll over',
+                  'jackknife', 'jack-knife', 'overturned', 'wreck')
+STALL_KEYWORDS = ('stall', 'stalled', 'disabled', 'broke down', 'breakdown')
+
+
+def classify_incident(text):
+    """Bucket an incident into hazmat / wreck / stall / other.
+
+    Hazmat wins over everything, then wrecks, then stalls — an incident that
+    mentions both a spill and a crash belongs at the top of the board.
+    """
+    t = (text or '').lower()
+    if any(k in t for k in HAZMAT_KEYWORDS):
+        return 'hazmat'
+    if any(k in t for k in WRECK_KEYWORDS):
+        return 'wreck'
+    if any(k in t for k in STALL_KEYWORDS):
+        return 'stall'
+    return 'other'
+
+
+def _incident_payload(row):
+    """Turn an incidents row into the shape the live wall renders."""
+    location = row['location'] or ''
+    description = row['description'] or ''
+    scraped_at = row['scraped_at']
+
+    # scraped_at is stored by SQLite as UTC ("YYYY-MM-DD HH:MM:SS").
+    scraped_iso = None
+    age_minutes = None
+    try:
+        dt = datetime.strptime(str(scraped_at)[:19], '%Y-%m-%d %H:%M:%S')
+        dt = pytz.utc.localize(dt)
+        scraped_iso = dt.isoformat()
+        age_minutes = int((datetime.now(pytz.utc) - dt).total_seconds() // 60)
+    except (ValueError, TypeError):
+        pass
+
+    return {
+        'id': row['id'],
+        'location': location,
+        'description': description,
+        'incident_time': row['incident_time'],
+        'scraped_at': scraped_at,
+        'scraped_iso': scraped_iso,
+        'age_minutes': age_minutes,
+        'severity': row['severity'],
+        'category': classify_incident(f"{location} {description}"),
+        'map_url': ('https://www.google.com/maps/search/?api=1&query='
+                    + quote_plus(location)) if location else None,
+    }
+
+
+def _load_briefings():
+    """Read briefing cards pushed in by the scheduled tasks."""
+    raw = Settings.get_setting(db, 'live_briefings', None)
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw)
+    except (ValueError, TypeError):
+        return []
+    if not isinstance(data, dict):
+        return []
+
+    cards = []
+    for key, card in data.items():
+        if isinstance(card, dict):
+            card = dict(card)
+            card['key'] = key
+            cards.append(card)
+    cards.sort(key=lambda c: c.get('updated_at') or '', reverse=True)
+    return cards
+
+
+@app.route('/live')
+@login_required
+def live():
+    """Full-screen always-on wall dashboard."""
+    return render_template('live.html', scrape_interval=Config.SCRAPE_INTERVAL)
+
+
+@app.route('/api/live')
+@login_required
+def api_live():
+    """Everything the live wall needs, in one call."""
+    hours = request.args.get('hours', 24, type=int)
+    rows = Incident.get_recent(db, hours=hours)
+    incidents = [_incident_payload(r) for r in rows]
+
+    counts = {'hazmat': 0, 'wreck': 0, 'stall': 0, 'other': 0}
+    for item in incidents:
+        counts[item['category']] = counts.get(item['category'], 0) + 1
+
+    # Scheduler status
+    next_run_iso = None
+    next_run_label = None
+    jobs = scheduler.get_jobs() if scheduler.running else []
+    for job in jobs:
+        if job.id == 'scrape_job' and job.next_run_time:
+            next_run_iso = job.next_run_time.isoformat()
+            next_run_label = job.next_run_time.astimezone(central_tz).strftime('%I:%M:%S %p')
+            break
+
+    logs = list(scrape_logs)
+    logs.reverse()
+
+    now = datetime.now(central_tz)
+    return jsonify({
+        'generated_at': now.isoformat(),
+        'generated_label': now.strftime('%I:%M:%S %p CST'),
+        'window_hours': hours,
+        'counts': counts,
+        'total_incidents': len(incidents),
+        'incidents': incidents,
+        'stats': {
+            'total_subscribers': len(Subscriber.get_all(db)),
+            'active_subscribers': len(Subscriber.get_all_active(db)),
+            'hazmat_subscribers': len(HazmatSubscriber.get_all_active(db)),
+            'alerts_today': SentAlert.get_recent_count(db, hours=24),
+            'alerts_this_hour': SentAlert.get_recent_count(db, hours=1),
+        },
+        'scraper': {
+            'running': scheduler.running,
+            'interval_seconds': Config.SCRAPE_INTERVAL,
+            'next_run_iso': next_run_iso,
+            'next_run_label': next_run_label,
+            'include_stalls': Settings.get_include_stalls(db),
+        },
+        'logs': logs[:40],
+        'briefings': _load_briefings(),
+    })
+
+
+@app.route('/api/briefing_token')
+@login_required
+def api_briefing_token():
+    """Show the logged-in admin the token automations must present.
+
+    Kept behind the admin login so the token is never readable anonymously.
+    """
+    token = Config.BRIEFING_TOKEN
+    return jsonify({
+        'configured': bool(token),
+        'token': token,
+        'source': ('BRIEFING_TOKEN env var' if os.environ.get('BRIEFING_TOKEN')
+                   else ('derived from SECRET_KEY' if token else
+                         'unavailable — set BRIEFING_TOKEN or a real SECRET_KEY')),
+        'post_to': url_for('api_briefing', _external=True),
+    })
+
+
+@app.route('/api/briefing', methods=['POST'])
+def api_briefing():
+    """Accept a briefing card from an external scheduled task.
+
+    Auth is a bearer token (BRIEFING_TOKEN) rather than a login session, so a
+    headless automation can post here. Returns 503 until the token is set, so
+    an unconfigured deploy can never be written to anonymously.
+    """
+    token = Config.BRIEFING_TOKEN
+    if not token:
+        return jsonify({'error': 'briefing endpoint not configured'}), 503
+
+    supplied = request.headers.get('Authorization', '')
+    if supplied.startswith('Bearer '):
+        supplied = supplied[7:]
+    if not hmac.compare_digest(supplied, token):
+        return jsonify({'error': 'unauthorized'}), 401
+
+    payload = request.get_json(silent=True) or {}
+    key = str(payload.get('key') or '').strip()
+    if not key:
+        return jsonify({'error': 'key is required'}), 400
+
+    items = payload.get('items') or []
+    clean_items = []
+    for item in items[:8]:
+        if not isinstance(item, dict):
+            continue
+        clean_items.append({
+            'headline': str(item.get('headline') or '')[:300],
+            'detail': str(item.get('detail') or '')[:600],
+            'url': str(item.get('url') or '')[:600],
+        })
+
+    card = {
+        'title': str(payload.get('title') or key)[:120],
+        'subtitle': str(payload.get('subtitle') or '')[:300],
+        'url': str(payload.get('url') or '')[:600],
+        'status': str(payload.get('status') or 'ok')[:40],
+        'items': clean_items,
+        'updated_at': datetime.now(central_tz).isoformat(),
+        'updated_label': datetime.now(central_tz).strftime('%b %d, %I:%M %p CST'),
+    }
+
+    raw = Settings.get_setting(db, 'live_briefings', None)
+    try:
+        store = json.loads(raw) if raw else {}
+        if not isinstance(store, dict):
+            store = {}
+    except (ValueError, TypeError):
+        store = {}
+
+    store[key] = card
+    Settings.set_setting(db, 'live_briefings', json.dumps(store))
+    add_scrape_log(f"📰 Briefing '{key}' updated from scheduled task")
+
+    return jsonify({'ok': True, 'key': key, 'updated_at': card['updated_at']})
+
 
 @app.route('/health')
 def health():

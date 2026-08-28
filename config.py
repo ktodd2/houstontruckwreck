@@ -1,3 +1,4 @@
+import hashlib
 import os
 from dotenv import load_dotenv
 
@@ -33,3 +34,23 @@ class Config:
     
     # Alert filtering configuration
     INCLUDE_STALLS = os.environ.get('INCLUDE_STALLS', 'true').lower() == 'true'
+
+    # Token used by external automations (scheduled briefing tasks) to push
+    # headline content into the live wall dashboard via POST /api/briefing.
+    #
+    # Prefer an explicit BRIEFING_TOKEN env var. Otherwise derive a stable
+    # token from SECRET_KEY so the endpoint works on an existing deploy with
+    # no new configuration — but never derive one from the public default
+    # SECRET_KEY, which anyone reading the source could reproduce.
+    @staticmethod
+    def _resolve_briefing_token():
+        explicit = os.environ.get('BRIEFING_TOKEN')
+        if explicit:
+            return explicit
+        secret = os.environ.get('SECRET_KEY')
+        if not secret or secret == 'dev-secret-key-change-in-production':
+            return None
+        return hashlib.sha256(('briefing:' + secret).encode()).hexdigest()[:40]
+
+
+Config.BRIEFING_TOKEN = Config._resolve_briefing_token()

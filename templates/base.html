@@ -249,6 +249,11 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link {% if request.path == '/live' %}active{% endif %}" href="{{ url_for('live') }}">
+                                <i class="fas fa-satellite-dish me-2"></i> Live Wall
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link {% if request.path == '/subscribers' %}active{% endif %}" href="{{ url_for('subscribers') }}">
                                 <i class="fas fa-users me-2"></i> Subscribers
                             </a>
