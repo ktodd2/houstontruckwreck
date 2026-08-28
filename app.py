@@ -11,9 +11,11 @@ import logging
 import os
 from datetime import datetime, timedelta
 import re
+import time
 from collections import deque
 from urllib.parse import quote_plus
 import pytz
+import requests
 
 from config import Config
 from models import Database, Incident, Subscriber, HazmatSubscriber, AdminUser, SentAlert, Settings
@@ -550,6 +552,50 @@ def _load_briefings():
     return cards
 
 
+# ---------- driveshaftcable.com store feed ----------
+# The live wall shows unfilled orders and sales KPIs pulled from the store's
+# Supabase edge function. Cached so 20-second polling from however many open
+# wall tabs costs at most one upstream call per STORE_STATS_CACHE_SECONDS,
+# and the last good payload is served (marked stale) if the upstream hiccups.
+_store_cache = {'at': 0.0, 'data': None}
+
+
+def _fetch_store_stats():
+    if not Config.STORE_STATS_TOKEN:
+        return {'ok': False, 'error': 'store feed not configured — set STORE_STATS_TOKEN'}
+
+    now = time.time()
+    if _store_cache['data'] is not None and now - _store_cache['at'] < Config.STORE_STATS_CACHE_SECONDS:
+        return _store_cache['data']
+
+    try:
+        resp = requests.get(
+            Config.STORE_STATS_URL,
+            headers={'Authorization': 'Bearer ' + Config.STORE_STATS_TOKEN},
+            timeout=8,
+        )
+        if resp.ok:
+            data = resp.json()
+        else:
+            data = {'ok': False, 'error': 'store feed returned HTTP %s' % resp.status_code}
+    except (requests.RequestException, ValueError) as exc:
+        data = {'ok': False, 'error': str(exc)}
+
+    if data.get('ok'):
+        _store_cache['data'] = data
+        _store_cache['at'] = now
+        return data
+
+    # Upstream failed: serve the previous good payload, flagged, so the wall
+    # degrades to "slightly old numbers" instead of an empty panel.
+    if _store_cache['data'] is not None:
+        stale = dict(_store_cache['data'])
+        stale['stale'] = True
+        stale['stale_error'] = data.get('error')
+        return stale
+    return data
+
+
 @app.route('/live')
 @login_required
 def live():
@@ -606,6 +652,7 @@ def api_live():
         },
         'logs': logs[:40],
         'briefings': _load_briefings(),
+        'store': _fetch_store_stats(),
     })
 
 

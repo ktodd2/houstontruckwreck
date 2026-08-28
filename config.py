@@ -35,6 +35,15 @@ class Config:
     # Alert filtering configuration
     INCLUDE_STALLS = os.environ.get('INCLUDE_STALLS', 'true').lower() == 'true'
 
+    # Live wall store feed: the driveshaftcable.com Supabase edge function that
+    # returns unfilled orders and sales/profit KPIs. The URL is stable enough to
+    # default; the token is a secret and must come from the environment.
+    STORE_STATS_URL = os.environ.get(
+        'STORE_STATS_URL',
+        'https://twrihhyfvomqiqbxkitc.supabase.co/functions/v1/live-wall-stats')
+    STORE_STATS_TOKEN = os.environ.get('STORE_STATS_TOKEN')
+    STORE_STATS_CACHE_SECONDS = int(os.environ.get('STORE_STATS_CACHE_SECONDS', 30))
+
     # Token used by external automations (scheduled briefing tasks) to push
     # headline content into the live wall dashboard via POST /api/briefing.
     #
