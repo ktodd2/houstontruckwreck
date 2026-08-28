@@ -513,8 +513,14 @@ def _incident_payload(row):
     }
 
 
+# A briefing card stops being shown once it is this old, so a task that
+# stops running leaves an empty panel rather than yesterday's news looking
+# like today's.
+BRIEFING_MAX_AGE_HOURS = 48
+
+
 def _load_briefings():
-    """Read briefing cards pushed in by the scheduled tasks."""
+    """Read the briefing cards pushed in by the scheduled tasks."""
     raw = Settings.get_setting(db, 'live_briefings', None)
     if not raw:
         return []
@@ -525,12 +531,21 @@ def _load_briefings():
     if not isinstance(data, dict):
         return []
 
+    cutoff = datetime.now(central_tz) - timedelta(hours=BRIEFING_MAX_AGE_HOURS)
     cards = []
     for key, card in data.items():
-        if isinstance(card, dict):
-            card = dict(card)
-            card['key'] = key
-            cards.append(card)
+        if not isinstance(card, dict):
+            continue
+        try:
+            updated = datetime.fromisoformat(card.get('updated_at'))
+            if updated < cutoff:
+                continue
+        except (ValueError, TypeError):
+            # Undateable card: keep it rather than silently dropping content.
+            pass
+        card = dict(card)
+        card['key'] = key
+        cards.append(card)
     cards.sort(key=lambda c: c.get('updated_at') or '', reverse=True)
     return cards
 
