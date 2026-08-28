@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
+from functools import wraps
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import check_password_hash
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -512,6 +513,10 @@ def _incident_payload(row):
         'category': classify_incident(f"{location} {description}"),
         'map_url': ('https://www.google.com/maps/search/?api=1&query='
                     + _maps_query(location)) if location else None,
+        # Per-incident TranStar map link captured at scrape time; older rows
+        # (and rows from before the column existed) fall back to the listing.
+        'transtar_url': ((row['transtar_url'] if 'transtar_url' in row.keys() else None)
+                         or 'https://traffic.houstontranstar.org/roadclosures/'),
     }
 
 
@@ -666,6 +671,96 @@ def api_live():
         'logs': logs[:40],
         'briefings': _load_briefings(),
         'store': _fetch_store_stats(),
+    })
+
+
+# ---------- shared tow wall (viewer login, separate from admin) ----------
+# A stripped-down wall for outside viewers (e.g. a tow operator): incident
+# feed and scrape log only — no store data, briefings, subscriber counts, or
+# admin navigation. Credentials come from WALL_USERNAME / WALL_PASSWORD env
+# vars; the repo is public, so nothing is hardcoded here.
+def _wall_configured():
+    return bool(Config.WALL_USERNAME and Config.WALL_PASSWORD)
+
+
+def wall_required(view):
+    """Viewer gate for the shared wall. Admin logins pass too."""
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if session.get('wall_user') or current_user.is_authenticated:
+            return view(*args, **kwargs)
+        if request.path.startswith('/api/'):
+            return jsonify({'error': 'unauthorized'}), 401
+        return redirect(url_for('tow_login'))
+    return wrapped
+
+
+@app.route('/tow/login', methods=['GET', 'POST'])
+def tow_login():
+    if not _wall_configured():
+        return render_template('tow_login.html',
+                               error='This wall is not set up yet — ask the admin.'), 503
+    error = None
+    if request.method == 'POST':
+        username = (request.form.get('username') or '').strip()
+        password = request.form.get('password') or ''
+        if (hmac.compare_digest(username.lower(), Config.WALL_USERNAME.lower())
+                and hmac.compare_digest(password, Config.WALL_PASSWORD)):
+            session['wall_user'] = True
+            session.permanent = True
+            return redirect(url_for('tow'))
+        error = 'Wrong username or password.'
+    return render_template('tow_login.html', error=error)
+
+
+@app.route('/tow/logout')
+def tow_logout():
+    session.pop('wall_user', None)
+    return redirect(url_for('tow_login'))
+
+
+@app.route('/tow')
+@wall_required
+def tow():
+    """Shared always-on wall: incident feed + live scrape log only."""
+    return render_template('tow.html')
+
+
+@app.route('/api/tow')
+@wall_required
+def api_tow():
+    """Feed for /tow — deliberately excludes store, briefings, and stats."""
+    hours = request.args.get('hours', 24, type=int)
+    rows = Incident.get_recent(db, hours=hours)
+    incidents = [_incident_payload(r) for r in rows]
+
+    counts = {'hazmat': 0, 'wreck': 0, 'stall': 0, 'other': 0}
+    for item in incidents:
+        counts[item['category']] = counts.get(item['category'], 0) + 1
+
+    next_run_label = None
+    jobs = scheduler.get_jobs() if scheduler.running else []
+    for job in jobs:
+        if job.id == 'scrape_job' and job.next_run_time:
+            next_run_label = job.next_run_time.astimezone(central_tz).strftime('%I:%M:%S %p')
+            break
+
+    logs = list(scrape_logs)
+    logs.reverse()
+
+    now = datetime.now(central_tz)
+    return jsonify({
+        'generated_at': now.isoformat(),
+        'window_hours': hours,
+        'counts': counts,
+        'total_incidents': len(incidents),
+        'incidents': incidents,
+        'scraper': {
+            'running': scheduler.running,
+            'interval_seconds': Config.SCRAPE_INTERVAL,
+            'next_run_label': next_run_label,
+        },
+        'logs': logs[:40],
     })
 
 

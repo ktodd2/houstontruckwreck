@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Live Wall · Houston Truck Wreck Monitor</title>
+<title>Live Wall · Houston Truck Wreck Monitor by K-Todd</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -44,11 +44,12 @@
     position:sticky;top:0;z-index:20;
   }
   .brand{display:flex;align-items:center;gap:12px;min-width:0;}
-  .brand .skyline{
-    width:44px;height:30px;flex:none;
-    display:block;
-  }
+  .brand .skyline{width:44px;height:30px;flex:none;display:block;}
   .brand h1{font-size:25px;line-height:1;font-weight:700;white-space:nowrap;}
+  .brand h1 small{
+    font-size:15px;font-weight:600;color:var(--amber);
+    letter-spacing:.06em;margin-left:8px;
+  }
   .brand .tag{
     font-size:11px;letter-spacing:.16em;color:var(--muted);
     text-transform:uppercase;margin-top:3px;font-family:'Barlow',sans-serif;font-weight:600;
@@ -71,13 +72,12 @@
   .pulse.dead{background:rgba(255,90,82,.1);border-color:rgba(255,90,82,.36);color:var(--red);}
   .pulse .dot{width:8px;height:8px;border-radius:50%;background:currentColor;animation:blip 2s ease-in-out infinite;}
   @keyframes blip{0%,100%{opacity:1;}50%{opacity:.25;}}
-  .navlinks{display:flex;gap:6px;}
-  .navlinks a{
+  .signout{
     font-size:11px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;
     color:var(--muted);text-decoration:none;padding:8px 11px;border-radius:7px;
     border:1px solid transparent;white-space:nowrap;
   }
-  .navlinks a:hover{color:var(--ink);background:var(--panel-2);border-color:var(--rule);}
+  .signout:hover{color:var(--ink);background:var(--panel-2);border-color:var(--rule);}
 
   /* ---------- kpi row ---------- */
   .kpis{
@@ -95,19 +95,16 @@
   .kpi.hazmat{border-left-color:var(--red);}   .kpi.hazmat .value{color:var(--red);}
   .kpi.wreck{border-left-color:var(--orange);} .kpi.wreck .value{color:var(--orange);}
   .kpi.stall{border-left-color:var(--amber);}  .kpi.stall .value{color:var(--amber);}
-  .kpi.alerts{border-left-color:var(--blue);}  .kpi.alerts .value{color:var(--blue);}
   .kpi.system{border-left-color:var(--green);} .kpi.system .value{color:var(--green);font-size:30px;padding-top:9px;}
   .kpi.system.down{border-left-color:var(--red);} .kpi.system.down .value{color:var(--red);}
 
   /* ---------- layout ---------- */
   .wrap{
     display:grid;gap:14px;padding:14px 22px 22px;
-    grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);
+    grid-template-columns:minmax(0,1.65fr) minmax(320px,.95fr);
     align-items:stretch;min-height:calc(100vh - 232px);
   }
   @media (max-width:1080px){.wrap{grid-template-columns:1fr;min-height:0;}}
-  .col{display:flex;flex-direction:column;gap:14px;min-height:0;min-width:0;}
-  .col .panel.grow{flex:1 1 auto;}
   .panel{
     background:var(--panel);border:1px solid var(--rule);border-radius:12px;
     box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column;min-height:0;
@@ -171,74 +168,14 @@
   @keyframes landed{0%{background:rgba(63,208,138,.16);}100%{background:transparent;}}
 
   /* ---------- log ---------- */
-  .log{flex:1 1 auto;min-height:150px;max-height:340px;overflow-y:auto;padding:8px 0;font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.65;}
+  .log{flex:1 1 auto;min-height:150px;overflow-y:auto;padding:8px 0;font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.65;}
   .log div{padding:2px 16px;display:flex;gap:10px;}
   .log .ts{color:#5C6878;flex:none;}
   .log .msg{color:#B6C2D2;min-width:0;overflow-wrap:anywhere;}
   .log .error .msg{color:var(--red);}
   .log .warning .msg{color:var(--orange);}
 
-  /* ---------- briefings ---------- */
-  .brief{padding:13px 16px;border-bottom:1px solid var(--rule);}
-  .brief:last-child{border-bottom:0;}
-  .brief h3{font-size:13.5px;font-weight:700;display:flex;align-items:center;gap:9px;}
-  .brief h3 .stamp{
-    margin-left:auto;font-family:'Barlow',sans-serif;font-size:10px;font-weight:600;
-    letter-spacing:.09em;color:var(--muted);text-transform:none;
-  }
-  .brief .subtitle{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.45;}
-  .brief ul{list-style:none;margin:9px 0 0;padding:0;}
-  .brief li{padding:6px 0 6px 13px;border-left:2px solid var(--rule);margin-bottom:5px;}
-  .brief li .hl{font-size:13px;font-weight:600;line-height:1.35;}
-  .brief li .dt{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.4;}
-  .brief a.more{
-    display:inline-block;margin-top:8px;font-size:10.5px;font-weight:700;
-    letter-spacing:.1em;text-transform:uppercase;color:var(--amber);text-decoration:none;
-  }
-  .brief a.more:hover{text-decoration:underline;}
-
-  /* ---------- store: orders to fill ---------- */
-  .order{display:grid;grid-template-columns:5px 1fr auto;gap:0 14px;border-bottom:1px solid var(--rule);align-items:stretch;}
-  .order:last-child{border-bottom:0;}
-  .order .stripe{background:var(--green);}
-  .order.aging .stripe{background:var(--amber);}
-  .order.late .stripe{background:var(--red);}
-  .order .body{padding:13px 0;min-width:0;}
-  .order .who{font-weight:600;font-size:17px;line-height:1.25;}
-  .order .who small{color:var(--muted);font-weight:500;font-size:13px;}
-  .order .what{color:var(--muted);font-size:13.5px;margin-top:3px;line-height:1.4;}
-  .order .meta{display:flex;gap:9px;flex-wrap:wrap;margin-top:7px;}
-  .chip.pay{color:var(--blue);border-color:rgba(79,168,255,.4);background:rgba(79,168,255,.1);}
-  .chip.age-ok{color:var(--green);border-color:rgba(63,208,138,.4);background:rgba(63,208,138,.08);}
-  .chip.age-warn{color:var(--amber);border-color:rgba(240,164,49,.42);background:rgba(240,164,49,.1);}
-  .chip.age-late{color:var(--red);border-color:rgba(255,90,82,.42);background:rgba(255,90,82,.1);}
-  .order .amt{
-    padding:13px 16px 13px 0;text-align:right;white-space:nowrap;
-    font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:700;color:var(--green);
-    font-variant-numeric:tabular-nums;
-  }
-  .order .amt small{display:block;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);font-weight:400;margin-top:3px;}
-  .allclear{padding:44px 18px;text-align:center;}
-  .allclear .big{font-family:'Barlow Condensed',sans-serif;font-size:30px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.04em;}
-  .allclear .sub{color:var(--muted);font-size:13px;margin-top:6px;}
-
-  /* ---------- store: sales KPIs ---------- */
-  .salesgrid{display:grid;gap:1px;background:var(--rule);grid-template-columns:repeat(3,1fr);}
-  @media (max-width:560px){.salesgrid{grid-template-columns:1fr;}}
-  .sale-tile{background:var(--panel);padding:14px 16px;}
-  .sale-tile .label{font-size:10.5px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);}
-  .sale-tile .rev{
-    font-family:'Barlow Condensed',sans-serif;font-size:38px;font-weight:700;line-height:1.05;
-    margin-top:5px;color:var(--ink);font-variant-numeric:tabular-nums;
-  }
-  .sale-tile .profit{font-size:12.5px;margin-top:4px;color:var(--green);font-weight:600;}
-  .sale-tile .sub{font-size:11.5px;color:var(--muted);margin-top:3px;}
-  .lastsale{padding:10px 16px;border-top:1px solid var(--rule);font-size:12.5px;color:var(--muted);line-height:1.5;}
-  .lastsale b{color:var(--ink);font-weight:600;}
-
   .empty{padding:34px 18px;text-align:center;color:var(--muted);font-size:13.5px;}
-  .stack{display:grid;gap:14px;grid-template-rows:auto minmax(0,1fr);min-height:0;}
-  .stack > .panel:first-child > div{overflow-y:auto;max-height:52vh;}
   .err{
     margin:0 22px 12px;padding:10px 14px;border-radius:9px;
     background:rgba(255,90,82,.1);border:1px solid rgba(255,90,82,.34);
@@ -273,7 +210,7 @@
       </g>
     </svg>
     <div>
-      <h1>Houston Truck Wreck Monitor</h1>
+      <h1>Houston Truck Wreck Monitor <small>by K-Todd</small></h1>
       <div class="tag">Live Wall · Wrecks · Stalls · Hazmat Spills</div>
     </div>
   </div>
@@ -287,11 +224,7 @@
     <small id="clockDate">Houston · Central</small>
   </div>
 
-  <nav class="navlinks">
-    <a href="/dashboard">Admin</a>
-    <a href="/subscribers">Subs</a>
-    <a href="/settings">Settings</a>
-  </nav>
+  <a class="signout" href="/tow/logout">Sign out</a>
 </header>
 
 <div class="err" id="err"></div>
@@ -300,52 +233,28 @@
   <div class="kpi hazmat"><div class="label">Hazmat / Spills</div><div class="value" id="kHazmat">–</div><div class="sub">last 24 hours</div></div>
   <div class="kpi wreck"><div class="label">Wrecks</div><div class="value" id="kWreck">–</div><div class="sub">last 24 hours</div></div>
   <div class="kpi stall"><div class="label">Stalls</div><div class="value" id="kStall">–</div><div class="sub">last 24 hours</div></div>
-  <div class="kpi alerts"><div class="label">Alerts Sent</div><div class="value" id="kAlerts">–</div><div class="sub" id="kAlertsSub">last 24 hours</div></div>
-  <div class="kpi system" id="kSystemCard"><div class="label">Scraper</div><div class="value" id="kSystem">–</div><div class="sub" id="kSystemSub">next run –</div></div>
+  <div class="kpi system" id="kSystemCard"><div class="label">Feed</div><div class="value" id="kSystem">–</div><div class="sub" id="kSystemSub">next update –</div></div>
 </section>
 
 <main class="wrap">
-  <div class="col">
-    <section class="panel grow">
-      <header>
-        <h2>Orders to Fill</h2>
-        <span class="count" id="orderCount"></span>
-      </header>
-      <div class="feed" id="orders"><div class="empty">Loading store data…</div></div>
-    </section>
+  <section class="panel">
+    <header>
+      <h2>Incident Feed</h2>
+      <div class="filters" id="filters">
+        <button data-f="all" aria-pressed="true">All</button>
+        <button data-f="hazmat" aria-pressed="false">Hazmat</button>
+        <button data-f="wreck" aria-pressed="false">Wrecks</button>
+        <button data-f="stall" aria-pressed="false">Stalls</button>
+      </div>
+      <span class="count" id="feedCount"></span>
+    </header>
+    <div class="feed" id="feed"><div class="empty">Loading incidents…</div></div>
+  </section>
 
-    <section class="panel">
-      <header><h2>Driveshaft Cable · Sales</h2><span class="count" id="salesStamp"></span></header>
-      <div class="salesgrid" id="salesGrid"><div class="empty" style="grid-column:1/-1;background:var(--panel)">Loading sales…</div></div>
-      <div class="lastsale" id="lastSale" style="display:none"></div>
-    </section>
-  </div>
-
-  <div class="col">
-    <section class="panel grow">
-      <header>
-        <h2>Incident Feed</h2>
-        <div class="filters" id="filters">
-          <button data-f="all" aria-pressed="true">All</button>
-          <button data-f="hazmat" aria-pressed="false">Hazmat</button>
-          <button data-f="wreck" aria-pressed="false">Wrecks</button>
-          <button data-f="stall" aria-pressed="false">Stalls</button>
-        </div>
-        <span class="count" id="feedCount"></span>
-      </header>
-      <div class="feed" id="feed"><div class="empty">Loading incidents…</div></div>
-    </section>
-
-    <section class="panel">
-      <header><h2>Scheduled Briefings</h2><span class="count" id="briefCount"></span></header>
-      <div id="briefings" style="max-height:34vh;overflow-y:auto"><div class="empty">Waiting for the first briefing to report in.</div></div>
-    </section>
-
-    <section class="panel">
-      <header><h2>Live Scrape Log</h2><span class="count" id="logCount"></span></header>
-      <div class="log" id="log" style="max-height:20vh"><div><span class="msg">Loading…</span></div></div>
-    </section>
-  </div>
+  <section class="panel">
+    <header><h2>Live Scrape Log</h2><span class="count" id="logCount"></span></header>
+    <div class="log" id="log"><div><span class="msg">Loading…</span></div></div>
+  </section>
 </main>
 
 <script>
@@ -407,108 +316,19 @@
 
   /* ---------- rendering ---------- */
   function renderKpis(d){
-    var c = d.counts || {}, s = d.stats || {}, sc = d.scraper || {};
+    var c = d.counts || {}, sc = d.scraper || {};
     $("kHazmat").textContent = c.hazmat || 0;
     $("kWreck").textContent  = c.wreck  || 0;
     $("kStall").textContent  = c.stall  || 0;
-    $("kAlerts").textContent = s.alerts_today || 0;
-    $("kAlertsSub").textContent = (s.alerts_this_hour || 0) + " in the last hour · "
-      + (s.active_subscribers || 0) + " subscribers";
 
     var card = $("kSystemCard");
     $("kSystem").textContent = sc.running ? "Active" : "Stopped";
     card.className = "kpi system" + (sc.running ? "" : " down");
     $("kSystemSub").textContent = sc.running
-      ? ("next run " + (sc.next_run_label || "–") + " · every " + (sc.interval_seconds || "?") + "s")
-      : "scheduler is not running";
+      ? ("next update " + (sc.next_run_label || "–") + " · every " + (sc.interval_seconds || "?") + "s")
+      : "feed is not running";
 
-    var fills = (latest.store && latest.store.unfilled) ? latest.store.unfilled.length : 0;
-    document.title = (fills ? fills + " TO FILL · " : "")
-      + (c.hazmat || 0) + "H " + (c.wreck || 0) + "W " + (c.stall || 0) + "S · Live Wall";
-  }
-
-  /* ---------- store: orders + sales ---------- */
-  function money(cents){
-    var v = (cents || 0) / 100;
-    return "$" + v.toLocaleString("en-US", {
-      minimumFractionDigits: (v % 1) ? 2 : 0, maximumFractionDigits: 2
-    });
-  }
-
-  function ageChip(h){
-    if (h >= 48) return '<span class="chip age-late">' + Math.floor(h / 24) + 'd waiting</span>';
-    if (h >= 24) return '<span class="chip age-warn">' + h + 'h waiting</span>';
-    return '<span class="chip age-ok">' + (h < 1 ? "new" : h + "h") + '</span>';
-  }
-
-  function renderStore(st){
-    var box = $("orders");
-    if (!st) return;
-
-    if (!st.ok && !st.unfilled){
-      $("orderCount").textContent = "";
-      box.innerHTML = '<div class="empty">Store feed unavailable — ' + esc(st.error || "unknown error") + '</div>';
-      $("salesGrid").innerHTML = '<div class="empty" style="grid-column:1/-1;background:var(--panel)">Sales unavailable.</div>';
-      $("lastSale").style.display = "none";
-      return;
-    }
-
-    var list = st.unfilled || [];
-    var awaiting = st.awaiting_payment_count || 0;
-    $("orderCount").textContent = list.length + " to fill · " + awaiting + " awaiting payment"
-      + (st.stale ? " · showing last good data" : "");
-
-    if (!list.length){
-      box.innerHTML = '<div class="allclear"><div class="big">✓ All orders shipped</div>' +
-        '<div class="sub">New paid orders land here within a minute' +
-        (awaiting ? ' · ' + awaiting + ' checkout' + (awaiting > 1 ? 's' : '') + ' still awaiting payment' : '') +
-        '</div></div>';
-    } else {
-      box.innerHTML = list.map(function(o){
-        var cls = o.age_hours >= 48 ? "late" : (o.age_hours >= 24 ? "aging" : "");
-        return '<article class="order ' + cls + '">' +
-          '<div class="stripe"></div>' +
-          '<div class="body">' +
-            '<div class="who">' + esc(o.name) +
-              (o.company ? ' <small>· ' + esc(o.company) + '</small>' : '') +
-              (o.place ? ' <small>· ' + esc(o.place) + '</small>' : '') +
-            '</div>' +
-            '<div class="what">' + esc(o.items || "") + '</div>' +
-            '<div class="meta">' + ageChip(o.age_hours || 0) +
-              '<span class="chip pay">' + esc(o.payment_method || "card") + '</span>' +
-              '<span class="chip sev">#' + esc(o.id) + '</span>' +
-            '</div>' +
-          '</div>' +
-          '<div class="amt">' + money(o.total_cents) +
-            '<small>' + esc((o.created_at || "").slice(0, 10)) + '</small></div>' +
-        '</article>';
-      }).join("");
-    }
-
-    var k = st.kpis || {};
-    var defs = [["Today", k.today], ["7 Days", k.d7], ["30 Days", k.d30]];
-    $("salesGrid").innerHTML = defs.map(function(d){
-      var v = d[1] || {};
-      return '<div class="sale-tile">' +
-        '<div class="label">' + d[0] + '</div>' +
-        '<div class="rev">' + money(v.revenue_cents) + '</div>' +
-        '<div class="profit">' + money(v.profit_cents) + ' profit · ' + (v.margin_pct || 0) + '%</div>' +
-        '<div class="sub">' + (v.orders || 0) + ' orders · ' + (v.units || 0) + ' units</div>' +
-      '</div>';
-    }).join("");
-
-    $("salesStamp").textContent = "90 days: " + money((k.d90 || {}).revenue_cents);
-
-    var ls = $("lastSale");
-    if (st.last_sale){
-      ls.style.display = "block";
-      ls.innerHTML = 'Last sale: <b>' + money(st.last_sale.total_cents) + '</b>' +
-        (st.last_sale.items ? ' · ' + esc(st.last_sale.items) : '') +
-        ' · ' + (st.last_sale.days_ago === 0 ? "today" : st.last_sale.days_ago + " days ago") +
-        (st.stale ? ' · <span style="color:var(--orange)">feed stale — ' + esc(st.stale_error || "retrying") + '</span>' : '');
-    } else {
-      ls.style.display = "none";
-    }
+    document.title = (c.hazmat || 0) + "H " + (c.wreck || 0) + "W " + (c.stall || 0) + "S · Live Wall by K-Todd";
   }
 
   function renderFeed(){
@@ -567,35 +387,11 @@
     }).join("");
   }
 
-  function renderBriefings(cards){
-    cards = cards || [];
-    $("briefCount").textContent = cards.length ? cards.length + " source" + (cards.length > 1 ? "s" : "") : "";
-    if (!cards.length){
-      $("briefings").innerHTML = '<div class="empty">Waiting for the first briefing to report in.</div>';
-      return;
-    }
-    $("briefings").innerHTML = cards.map(function(c){
-      var items = (c.items || []).map(function(it){
-        var hl = it.url
-          ? '<a href="' + esc(it.url) + '" target="_blank" rel="noopener">' + esc(it.headline) + ' ↗</a>'
-          : esc(it.headline);
-        return '<li><div class="hl">' + hl + '</div>' +
-          (it.detail ? '<div class="dt">' + esc(it.detail) + '</div>' : "") + '</li>';
-      }).join("");
-      return '<div class="brief">' +
-        '<h3>' + esc(c.title) + '<span class="stamp">' + esc(c.updated_label || "") + '</span></h3>' +
-        (c.subtitle ? '<div class="subtitle">' + esc(c.subtitle) + '</div>' : "") +
-        (items ? '<ul>' + items + '</ul>' : "") +
-        (c.url ? '<a class="more" href="' + esc(c.url) + '" target="_blank" rel="noopener">Open full report ↗</a>' : "") +
-      '</div>';
-    }).join("");
-  }
-
   /* ---------- polling ---------- */
   function poll(){
-    fetch("/api/live", { credentials:"same-origin", cache:"no-store" })
+    fetch("/api/tow", { credentials:"same-origin", cache:"no-store" })
       .then(function(r){
-        if (r.status === 401 || r.redirected){ throw new Error("Session expired — reload and log in again."); }
+        if (r.status === 401 || r.redirected){ throw new Error("Signed out — reload this page and log in again."); }
         if (!r.ok) throw new Error("Server returned " + r.status);
         return r.json();
       })
@@ -606,8 +402,6 @@
         renderKpis(d);
         renderFeed();
         renderLog(d.logs);
-        renderBriefings(d.briefings);
-        renderStore(d.store);
         paintPulse();
       })
       .catch(function(e){

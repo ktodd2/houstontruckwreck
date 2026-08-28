@@ -39,10 +39,16 @@ class Database:
                 description TEXT NOT NULL,
                 incident_time TEXT,
                 scraped_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                severity INTEGER DEFAULT 1
+                severity INTEGER DEFAULT 1,
+                transtar_url TEXT
             )
         ''')
-        
+
+        # Migrate existing databases that predate the transtar_url column
+        cursor.execute("PRAGMA table_info(incidents)")
+        if 'transtar_url' not in [row[1] for row in cursor.fetchall()]:
+            cursor.execute('ALTER TABLE incidents ADD COLUMN transtar_url TEXT')
+
         # Create subscribers table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS subscribers (
@@ -204,13 +210,14 @@ class Settings:
         Settings.set_setting(db, 'include_stalls', value)
 
 class Incident:
-    def __init__(self, location, description, incident_time=None, severity=1):
+    def __init__(self, location, description, incident_time=None, severity=1, transtar_url=None):
         self.location = location
         self.description = description
         # Use Central Time for incident time
         central_tz = pytz.timezone('America/Chicago')
         self.incident_time = incident_time or datetime.now(central_tz).strftime('%I:%M %p')
         self.severity = severity
+        self.transtar_url = transtar_url
         self.incident_hash = self._generate_hash()
     
     def _generate_hash(self):
@@ -235,9 +242,10 @@ class Incident:
         
         try:
             cursor.execute('''
-                INSERT INTO incidents (incident_hash, location, description, incident_time, severity)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (self.incident_hash, self.location, self.description, self.incident_time, self.severity))
+                INSERT INTO incidents (incident_hash, location, description, incident_time, severity, transtar_url)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (self.incident_hash, self.location, self.description, self.incident_time, self.severity,
+                  self.transtar_url))
             
             incident_id = cursor.lastrowid
             conn.commit()

@@ -44,6 +44,11 @@ class Config:
     STORE_STATS_TOKEN = os.environ.get('STORE_STATS_TOKEN')
     STORE_STATS_CACHE_SECONDS = int(os.environ.get('STORE_STATS_CACHE_SECONDS', 30))
 
+    # Viewer login for the shared /tow wall (incident feed + scrape log only).
+    # Set both in the environment — the repo is public, so no defaults here.
+    WALL_USERNAME = os.environ.get('WALL_USERNAME')
+    WALL_PASSWORD = os.environ.get('WALL_PASSWORD')
+
     # Token used by external automations (scheduled briefing tasks) to push
     # headline content into the live wall dashboard via POST /api/briefing.
     #

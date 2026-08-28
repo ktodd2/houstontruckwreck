@@ -183,7 +183,15 @@ class TranStarScraper:
                             'detected', 'reported', 'active', 'closure']):
 
                         if self.is_relevant_incident(full_text):
-                            incident = self.create_incident_from_html_row(cell_texts, table_type)
+                            # The last cell of each TranStar row is a map link
+                            # (layers_ve.aspx?x=<lat>&y=<lon>) centered on the
+                            # incident — keep it so dashboards can link back.
+                            transtar_url = None
+                            for a in row.find_all('a', href=True):
+                                if 'layers_ve' in a['href']:
+                                    transtar_url = a['href'].replace('http://', 'https://')
+                                    break
+                            incident = self.create_incident_from_html_row(cell_texts, table_type, transtar_url)
                             if incident:
                                 incidents.append(incident)
                                 logger.info(f"✅ HTML incident found ({table_type}): {incident.location}")
@@ -194,7 +202,7 @@ class TranStarScraper:
             logger.error(f"Error in HTML fallback scraping: {e}")
             return []
     
-    def create_incident_from_html_row(self, cell_texts, table_type='unknown'):
+    def create_incident_from_html_row(self, cell_texts, table_type='unknown', transtar_url=None):
         """Create incident from HTML table row with table-type-aware column mapping"""
         try:
             if len(cell_texts) < 3:
@@ -249,7 +257,8 @@ class TranStarScraper:
                 location=location,
                 description=description,
                 incident_time=incident_time,
-                severity=severity
+                severity=severity,
+                transtar_url=transtar_url
             )
             
             return incident
