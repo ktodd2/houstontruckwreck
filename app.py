@@ -19,6 +19,7 @@ import pytz
 import requests
 
 from config import Config
+from netmon_feed import feed as netmon_feed
 from models import Database, Incident, Subscriber, HazmatSubscriber, AdminUser, SentAlert, Settings
 from scraper import TranStarScraper
 from email_service import EmailService
@@ -671,6 +672,7 @@ def api_live():
         'logs': logs[:40],
         'briefings': _load_briefings(),
         'store': _fetch_store_stats(),
+        'netmon': netmon_feed.fetch(Config),
     })
 
 

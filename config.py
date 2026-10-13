@@ -44,6 +44,14 @@ class Config:
     STORE_STATS_TOKEN = os.environ.get('STORE_STATS_TOKEN')
     STORE_STATS_CACHE_SECONDS = int(os.environ.get('STORE_STATS_CACHE_SECONDS', 30))
 
+    # Private Home network feed: only the server knows the read token.
+    NETMON_STATUS_URL = os.environ.get('NETMON_STATUS_URL', 'https://twrihhyfvomqiqbxkitc.supabase.co/functions/v1/netmon-status')
+    NETMON_READ_TOKEN = os.environ.get('NETMON_READ_TOKEN')
+    NETMON_CACHE_SECONDS = 15
+    NETMON_STALE_SECONDS = 120
+    NETMON_OFFLINE_SECONDS = 300
+    NETMON_SPEED_STALE_SECONDS = 7200
+
     # Viewer login for the shared /tow wall (incident feed + scrape log only).
     # Set both in the environment — the repo is public, so no defaults here.
     WALL_USERNAME = os.environ.get('WALL_USERNAME')

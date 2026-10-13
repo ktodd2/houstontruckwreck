@@ -244,6 +244,17 @@
     background:rgba(255,90,82,.1);border:1px solid rgba(255,90,82,.34);
     color:var(--red);font-size:12.5px;font-weight:600;display:none;
   }
+  /* Add-on footer: existing columns and order area retain their dimensions. */
+  #netmon{flex:none;}
+  #netmon > header .count{font-size:9px;letter-spacing:0;}
+  .netmon-source{display:flex;gap:18px;align-items:center;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--rule);}
+  .netmon-source:first-child{border-top:0;}
+  .netmon-source p{margin:3px 0;color:var(--muted);font-size:12px;}
+  .netmon-source strong{font-size:16px;overflow-wrap:anywhere;}
+  .netmon-source svg{width:180px;height:40px;flex:none;}
+  .netmon-state{font-size:11px;font-weight:700;color:var(--green);}
+  .netmon-state[data-state="STALE"]{color:var(--amber);}
+  .netmon-state[data-state="OFFLINE"]{color:var(--red);}
 </style>
 </head>
 <body>
@@ -344,6 +355,10 @@
     <section class="panel">
       <header><h2>Live Scrape Log</h2><span class="count" id="logCount"></span></header>
       <div class="log" id="log" style="max-height:20vh"><div><span class="msg">Loading…</span></div></div>
+    </section>
+    <section class="panel" id="netmon" aria-label="Home network">
+      <header><h2>Home network</h2><span class="count" id="netmon-note">Connecting</span></header>
+      <div id="netmon-sources" aria-live="polite"></div>
     </section>
   </div>
 </main>
@@ -591,6 +606,40 @@
     }).join("");
   }
 
+  /* Network data is only ever inserted as text or numeric SVG attributes. */
+  function renderNetmon(data){
+    var root=$("netmon-sources"), note=$("netmon-note");
+    root.replaceChildren();
+    if(!data || !data.configured){note.textContent="Not configured";return;}
+    note.textContent=data.stale ? "Feed unavailable · last good data" : (!data.sources || !data.sources.length ? "No data" : "Private · 30s telemetry / hourly speed tests");
+    (data.sources||[]).forEach(function(s){
+      var row=document.createElement("div");row.className="netmon-source";
+      function text(parent,tag,value,cls){var el=document.createElement(tag);el.textContent=value;if(cls)el.className=cls;parent.appendChild(el);return el;}
+      function num(v){return typeof v==="number" && Number.isFinite(v) ? v.toLocaleString("en-US",{maximumFractionDigits:1}) : "—";}
+      function age(v){return v==null ? "unknown" : (v<60?Math.floor(v)+"s":v<3600?Math.floor(v/60)+"m":Math.floor(v/3600)+"h")+" ago";}
+      var title=document.createElement("div"), metrics=document.createElement("div"), latency=document.createElement("div");
+      text(title,"strong",s.label);var badge=text(title,"p",s.state,"netmon-state");badge.dataset.state=s.state;
+      var sp=s.latest_speed||{}, sample=s.latest_sample||{};
+      text(metrics,"strong","↓ "+num(sp.download_mbps)+" / ↑ "+num(sp.upload_mbps)+" Mbps");
+      text(metrics,"p","Speed measured "+age(s.speed_age_seconds)+(s.speed_stale?" · stale":""));
+      text(latency,"p","Internet "+num(sample.internet_latency_ms)+" ms / "+num(sample.internet_loss_pct)+"% loss");
+      text(latency,"p","Gateway "+num(sample.gateway_latency_ms)+" ms / "+num(sample.gateway_loss_pct)+"% loss");
+      text(latency,"p",num(sample.devices_online)+" devices online · Last sample "+age(s.sample_age_seconds));
+      row.append(title,metrics,latency);
+      var svg=document.createElementNS("http://www.w3.org/2000/svg","svg");svg.setAttribute("viewBox","0 0 180 40");svg.setAttribute("role","img");svg.setAttribute("aria-label","Internet latency, real samples over 24 hours");
+      var end=Date.parse(data.server_time), points=(s.history||[]).filter(function(p){return typeof p.internet_latency_ms==="number" && Number.isFinite(p.internet_latency_ms) && Date.parse(p.sampled_at)<=end && Date.parse(p.sampled_at)>=end-86400000;});
+      var max=Math.max(1,...points.map(function(p){return p.internet_latency_ms;}));
+      // Connect only adjacent real points; break the sparkline at long gaps.
+      points.sort(function(a,b){return Date.parse(a.sampled_at)-Date.parse(b.sampled_at);});
+      var segment=[];
+      function drawSegment(){if(segment.length>1){var line=document.createElementNS(svg.namespaceURI,"polyline");line.setAttribute("points",segment.join(" "));line.setAttribute("fill","none");line.setAttribute("stroke","#4FA8FF");line.setAttribute("stroke-width","1.5");svg.appendChild(line);}segment=[];}
+      points.forEach(function(p,i){if(i && Date.parse(p.sampled_at)-Date.parse(points[i-1].sampled_at)>600000)drawSegment();segment.push((2+176*(Date.parse(p.sampled_at)-(end-86400000))/86400000)+","+(38-36*p.internet_latency_ms/max));});drawSegment();
+      // Individual real points: no interpolated/fabricated samples across gaps.
+      points.forEach(function(p){var dot=document.createElementNS(svg.namespaceURI,"circle");dot.setAttribute("cx",String(2+176*(Date.parse(p.sampled_at)-(end-86400000))/86400000));dot.setAttribute("cy",String(38-36*p.internet_latency_ms/max));dot.setAttribute("r","1.5");dot.setAttribute("fill","#4FA8FF");svg.appendChild(dot);});
+      row.appendChild(svg);root.appendChild(row);
+    });
+  }
+
   /* ---------- polling ---------- */
   function poll(){
     fetch("/api/live", { credentials:"same-origin", cache:"no-store" })
@@ -608,6 +657,7 @@
         renderLog(d.logs);
         renderBriefings(d.briefings);
         renderStore(d.store);
+        renderNetmon(d.netmon);
         paintPulse();
       })
       .catch(function(e){

@@ -1,0 +1,16 @@
+{
+  "source_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "label": "Home Mac",
+  "sampled_at": "2026-10-13T20:00:00Z",
+  "collector_ok": true,
+  "internet_latency_ms": 4.4,
+  "internet_loss_pct": 0,
+  "gateway_latency_ms": 0.5,
+  "gateway_loss_pct": 0,
+  "devices_online": 8,
+  "devices_seen": 9,
+  "download_mbps": 6702.07,
+  "upload_mbps": 1853.35,
+  "speed_measured_at": "2026-10-13T19:50:00Z",
+  "agent_version": "netmon/1.1"
+}
