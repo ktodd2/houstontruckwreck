@@ -1,0 +1,16 @@
+[
+  {
+    "observed_at": "2026-11-06T18:40:49-06:00",
+    "location": "IH-10 Katy Westbound At Dairy Ashford Rd",
+    "description": "Heavy Truck, Stall",
+    "lanes": "Center Lane",
+    "status": "Verified at 6:39 PM"
+  },
+  {
+    "observed_at": "2026-11-06T18:41:49-06:00",
+    "location": "IH-10 Katy Westbound At Dairy Ashford Rd",
+    "description": "Heavy Truck, Stall",
+    "lanes": "2 Center Lanes",
+    "status": "Verified at 6:39 PM"
+  }
+]

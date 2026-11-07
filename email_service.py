@@ -14,6 +14,7 @@ import base64
 import os
 from models import Database, Subscriber, HazmatSubscriber, SentAlert, Incident
 from config import Config
+from incident_identity import priority_flags
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,9 @@ class EmailService:
             subject = "🚨 ACCIDENT ALERT: Heavy Truck Incident in Houston!"
         else:
             subject = "🚛 Heavy Truck Incident Alert - Houston"
+
+        if any(incident.is_update for incident, _ in incidents):
+            subject = "UPDATE: " + subject
         
         # Create incident table HTML
         table_rows = ""
@@ -94,7 +98,7 @@ class EmailService:
                         {incident.location}
                     </a>
                 </td>
-                <td style="padding: 12px; border: 1px solid #ddd;">{incident.description}</td>
+                <td style="padding: 12px; border: 1px solid #ddd;">{'Update: ' if incident.is_update else ''}{incident.description}</td>
                 <td style="padding: 12px; border: 1px solid #ddd;">{incident.incident_time}</td>
                 <td style="padding: 12px; border: 1px solid #ddd; text-align: center;">
                     {'🔴' if incident.severity >= 4 else '🟡' if incident.severity >= 3 else '🟢'}
@@ -221,7 +225,7 @@ class EmailService:
                     <div class="alert-card">
                         <div class="alert-title">📊 Alert Summary</div>
                         <div class="alert-meta">
-                            {len(incidents)} new incident(s) detected at {self.format_central_time()}<br>
+                            {len(incidents)} new or updated incident(s) detected at {self.format_central_time()}<br>
                             Source: Houston TranStar Traffic Management
                         </div>
                     </div>
@@ -267,7 +271,7 @@ class EmailService:
         text_content = f"""
 HOUSTON TRAFFIC ALERT - {self.format_central_time()}
 
-{len(incidents)} new heavy truck/hazmat incident(s) detected:
+{len(incidents)} new or updated heavy truck/hazmat incident(s) detected:
 
 """
         
@@ -276,7 +280,7 @@ HOUSTON TRAFFIC ALERT - {self.format_central_time()}
             # Replace "at" and "@" with "and" for better intersection recognition
             location_formatted = incident.location.replace(' @ ', ' and ').replace('@', ' and ').replace(' at ', ' and ').replace(' AT ', ' and ')
             text_content += f"""
-Incident #{i}:
+{'Incident update' if incident.is_update else 'Incident'} #{i}:
 Location: {incident.location}
 Description: {incident.description}
 Time: {incident.incident_time}
@@ -299,7 +303,7 @@ Generated: {self.format_central_time()}
     def _is_stall_incident(incident):
         """Return True if an incident is a stall/breakdown (matches scraper.py)."""
         desc_lower = incident.description.lower()
-        return 'stall' in desc_lower or 'breakdown' in desc_lower
+        return ('stall' in desc_lower or 'breakdown' in desc_lower) and not priority_flags(desc_lower)
 
     def _send_incident_email(self, incidents, recipients):
         """Build and send one alert email for the given incidents to recipients.
@@ -428,6 +432,8 @@ Generated: {self.format_central_time()}
         try:
             # Create email content with hazmat-specific branding
             subject = f"☣️ HAZMAT ALERT: {len(hazmat_incidents)} Spill/Hazmat Incident{'s' if len(hazmat_incidents) != 1 else ''} in Houston!"
+            if any(incident.is_update for incident, _ in hazmat_incidents):
+                subject = "UPDATE: " + subject
             
             # Create incident table HTML
             table_rows = ""
@@ -444,7 +450,7 @@ Generated: {self.format_central_time()}
                             {incident.location}
                         </a>
                     </td>
-                    <td style="padding: 12px; border: 1px solid #ddd;">{incident.description}</td>
+                    <td style="padding: 12px; border: 1px solid #ddd;">{'Update: ' if incident.is_update else ''}{incident.description}</td>
                     <td style="padding: 12px; border: 1px solid #ddd;">{incident.incident_time}</td>
                 </tr>
                 """
@@ -603,7 +609,7 @@ HOUSTON HAZMAT ALERT - {self.format_central_time()}
             for i, (incident, incident_id) in enumerate(hazmat_incidents, 1):
                 location_formatted = incident.location.replace(' @ ', ' and ').replace('@', ' and ').replace(' at ', ' and ').replace(' AT ', ' and ')
                 text_content += f"""
-Hazmat Incident #{i}:
+{'Hazmat incident update' if incident.is_update else 'Hazmat Incident'} #{i}:
 Location: {incident.location}
 Description: {incident.description}
 Time: {incident.incident_time}
@@ -1159,3 +1165,4 @@ def test_email_service():
 
 if __name__ == "__main__":
     test_email_service()
+

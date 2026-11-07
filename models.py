@@ -1,10 +1,12 @@
 import sqlite3
 import hashlib
+import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 from werkzeug.security import generate_password_hash, check_password_hash
 from config import Config
+from incident_identity import CENTRAL, normalize, location_key, occurrence_key, priority_flags, core_description
 
 class Database:
     def __init__(self, db_path=None):
@@ -48,6 +50,14 @@ class Database:
         cursor.execute("PRAGMA table_info(incidents)")
         if 'transtar_url' not in [row[1] for row in cursor.fetchall()]:
             cursor.execute('ALTER TABLE incidents ADD COLUMN transtar_url TEXT')
+
+        # Additive migration: preserve existing IDs, hashes and sent-alert links.
+        columns = {row[1] for row in cursor.execute('PRAGMA table_info(incidents)')}
+        for name, definition in [('identity_key', 'TEXT'), ('alert_flags', 'INTEGER'),
+                                 ('last_seen_at', 'TEXT')]:
+            if name not in columns:
+                cursor.execute(f'ALTER TABLE incidents ADD COLUMN {name} {definition}')
+        cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS incidents_identity_key ON incidents(identity_key)')
 
         # Create subscribers table
         cursor.execute('''
@@ -210,7 +220,8 @@ class Settings:
         Settings.set_setting(db, 'include_stalls', value)
 
 class Incident:
-    def __init__(self, location, description, incident_time=None, severity=1, transtar_url=None):
+    def __init__(self, location, description, incident_time=None, severity=1, transtar_url=None,
+                 *, source_location=None, source_status=None, observed_at=None):
         self.location = location
         self.description = description
         # Use Central Time for incident time
@@ -218,43 +229,86 @@ class Incident:
         self.incident_time = incident_time or datetime.now(central_tz).strftime('%I:%M %p')
         self.severity = severity
         self.transtar_url = transtar_url
+        self.observed_at = observed_at or datetime.now(CENTRAL)
+        self.source_location = source_location or location
+        # An explicitly empty status must stay unknown, not become scrape time.
+        self.source_status = incident_time if source_status is None else source_status
+        self.occurrence = occurrence_key(self.source_status, self.observed_at)
+        self.alert_flags = priority_flags(description)
+        self.is_update = False
         self.incident_hash = self._generate_hash()
+        self.identity_key = self.incident_hash if self.occurrence else None
     
     def _generate_hash(self):
-        """Generate unique hash for incident deduplication"""
-        # Clean location and description for consistent hashing
-        location_clean = self.location.lower().strip()
-        description_clean = self.description.lower().strip()
-        
-        # Remove time-sensitive words
-        time_words = ['reported', 'dispatched', 'responding', 'crews', 'updated']
-        for word in time_words:
-            description_clean = description_clean.replace(word, '')
-        
-        # Create hash from core incident data
-        core_data = f"{location_clean}:{description_clean[:100]}"
-        return hashlib.md5(core_data.encode()).hexdigest()
+        """Use source location + occurrence, never mutable lanes, for timed rows."""
+        parts = ['transtar-v2', location_key(self.source_location), self.occurrence]
+        if self.occurrence is None:
+            # No trustworthy time: do not merge different descriptions by location.
+            parts += [self.observed_at.astimezone(CENTRAL).date().isoformat(),
+                      normalize(self.description)]
+        return hashlib.sha256(json.dumps(parts).encode()).hexdigest()
+
+    def _legacy_match(self, conn):
+        """Adopt one unambiguous old row without changing its ID or sent history."""
+        if not self.occurrence:
+            return None
+        # Older display locations lost Before/After/Near. Do not guess which one.
+        if location_key(self.source_location) != location_key(self.location):
+            return None
+        matches = []
+        since = (self.observed_at.astimezone(pytz.UTC) - timedelta(days=2)).strftime('%Y-%m-%d %H:%M:%S')
+        for row in conn.execute('SELECT * FROM incidents WHERE identity_key IS NULL AND scraped_at >= ?', (since,)):
+            if location_key(row['location']) != location_key(self.location):
+                continue
+            if core_description(row['description']) != core_description(self.description):
+                continue
+            try:
+                observed = datetime.fromisoformat(row['scraped_at']).replace(tzinfo=pytz.UTC)
+            except (ValueError, TypeError):
+                continue
+            if occurrence_key(row['incident_time'], observed) == self.occurrence:
+                matches.append(row)
+        return matches[0] if len(matches) == 1 else None
     
     def save(self, db):
-        """Save incident to database if not already exists"""
+        """Upsert an observation; return an alert ID only for new/priority changes.
+
+        Serialize match/update/insert so simultaneous scrape jobs cannot both
+        queue the same new event or escalation. This is not an SMTP outbox.
+        """
         conn = db.get_connection()
-        cursor = conn.cursor()
-        
         try:
-            cursor.execute('''
-                INSERT INTO incidents (incident_hash, location, description, incident_time, severity, transtar_url)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (self.incident_hash, self.location, self.description, self.incident_time, self.severity,
-                  self.transtar_url))
-            
-            incident_id = cursor.lastrowid
-            conn.commit()
+            with conn:
+                conn.execute('BEGIN IMMEDIATE')
+                row = conn.execute('SELECT * FROM incidents WHERE identity_key = ? OR incident_hash = ?',
+                                   (self.identity_key, self.incident_hash)).fetchone()
+                row = row if row is not None else self._legacy_match(conn)
+                seen_at = self.observed_at.astimezone(pytz.UTC).strftime('%Y-%m-%d %H:%M:%S')
+                if row is not None:
+                    self.record_id = row['id']
+                    previous_flags = row['alert_flags']
+                    if previous_flags is None:
+                        previous_flags = priority_flags(row['description'])
+                    self.is_update = bool(self.alert_flags & ~previous_flags)
+                    conn.execute('''
+                        UPDATE incidents SET identity_key = ?, description = ?, incident_time = ?,
+                            severity = ?, transtar_url = COALESCE(?, transtar_url),
+                            alert_flags = ?, last_seen_at = ? WHERE id = ?
+                    ''', (self.identity_key, self.description, self.incident_time, self.severity,
+                          self.transtar_url, previous_flags | self.alert_flags, seen_at, row['id']))
+                    # Retain legacy hashes so existing sent-alert lookups keep working.
+                    self.incident_hash = row['incident_hash']
+                    return row['id'] if self.is_update else None
+                cursor = conn.execute('''
+                    INSERT INTO incidents (incident_hash, location, description, incident_time, severity,
+                        transtar_url, identity_key, alert_flags, last_seen_at, scraped_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (self.incident_hash, self.location, self.description, self.incident_time, self.severity,
+                      self.transtar_url, self.identity_key, self.alert_flags, seen_at, seen_at))
+                self.record_id = cursor.lastrowid
+                return self.record_id
+        finally:
             conn.close()
-            return incident_id
-        except sqlite3.IntegrityError:
-            # Incident already exists
-            conn.close()
-            return None
     
     @staticmethod
     def get_recent(db, hours=24):
@@ -479,3 +533,4 @@ class SentAlert:
         count = cursor.fetchone()[0]
         conn.close()
         return count
+
