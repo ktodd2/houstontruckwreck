@@ -84,7 +84,7 @@ def scheduled_scrape():
         new_incidents = scraper.run_scrape_cycle()
         
         if new_incidents:
-            add_scrape_log(f"✅ Found {len(new_incidents)} new incidents!", 'info')
+            add_scrape_log(f"✅ Found {len(new_incidents)} new or updated incidents!", 'info')
             
             # Log incident details
             for incident, incident_id in new_incidents:
@@ -893,3 +893,4 @@ if __name__ == '__main__':
     print(f"📧 Email configured: {bool(Config.EMAIL_USERNAME and Config.EMAIL_PASSWORD)}")
     
     app.run(debug=True, host='0.0.0.0', port=5000)
+

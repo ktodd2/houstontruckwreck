@@ -6,6 +6,7 @@ from datetime import datetime
 import pytz
 from models import Incident, Database
 from config import Config
+from incident_identity import normalize, priority_flags
 import time
 
 # Set up logging
@@ -87,7 +88,7 @@ class TranStarScraper:
 
         # If stalls are disabled and this is a stall, exclude it
         from models import Settings
-        if is_stall and not Settings.get_include_stalls(self.db):
+        if is_stall and not priority_flags(text) and not Settings.get_include_stalls(self.db):
             logger.info(f"🚫 Excluding stall (stalls disabled): {text[:100]}...")
             return False
 
@@ -214,6 +215,7 @@ class TranStarScraper:
             # Stalls:  Location, Description, Lanes, Status, Map
             # Closures: Location, Description, Lanes, Duration, Status, Map
             location = cell_texts[0]
+            source_location = location
 
             if table_type == 'freeway':
                 description = cell_texts[1] if len(cell_texts) > 1 else "Incident reported"
@@ -258,7 +260,10 @@ class TranStarScraper:
                 description=description,
                 incident_time=incident_time,
                 severity=severity,
-                transtar_url=transtar_url
+                transtar_url=transtar_url,
+                source_location=source_location,
+                source_status=status_time,
+                observed_at=self.get_central_time_now()
             )
             
             return incident
@@ -386,34 +391,46 @@ class TranStarScraper:
 
         incidents = self.scrape_html()
 
-        # Remove duplicates
         unique_incidents = self.remove_duplicate_incidents(incidents)
-
-        logger.info(f"Found {len(incidents)} total incidents, {len(unique_incidents)} unique incidents")
+        logger.info(f"Found {len(incidents)} observations, {len(unique_incidents)} distinct observations")
         return unique_incidents
     
     def remove_duplicate_incidents(self, incidents):
-        """Remove duplicate incidents"""
+        """Remove identical observations, retaining updates to the same event."""
         unique_incidents = []
         seen_hashes = set()
         
         for incident in incidents:
-            if incident.incident_hash not in seen_hashes:
+            fingerprint = (incident.incident_hash, normalize(incident.description), incident.severity)
+            if fingerprint not in seen_hashes:
                 unique_incidents.append(incident)
-                seen_hashes.add(incident.incident_hash)
+                seen_hashes.add(fingerprint)
         
         return unique_incidents
     
     def save_new_incidents(self, incidents):
-        """Save new incidents to database"""
+        """Store observations and return new events or important updates to alert."""
         new_incidents = []
         
         for incident in incidents:
-            if not Incident.is_already_sent(self.db, incident.incident_hash):
-                incident_id = incident.save(self.db)
-                if incident_id:
-                    new_incidents.append((incident, incident_id))
-                    logger.info(f"New incident saved: {incident.location} - {incident.description[:50]}...")
+            incident_id = incident.save(self.db)
+            # Coalesce one poll's rows into one alert per record. Keep the latest
+            # lanes while retaining any priority facts seen earlier in this poll.
+            prior = next((i for i, (_, saved_id) in enumerate(new_incidents)
+                          if saved_id == incident.record_id), None)
+            if prior is not None:
+                previous = new_incidents[prior][0]
+                if previous.alert_flags & ~incident.alert_flags:
+                    incident.description = previous.description + '; Update: ' + incident.description
+                    incident.alert_flags |= previous.alert_flags
+                    incident.severity = max(previous.severity, incident.severity)
+                incident.is_update = previous.is_update
+                new_incidents[prior] = (incident, incident.record_id)
+            elif incident_id:
+                new_incidents.append((incident, incident_id))
+            if incident_id:
+                kind = 'Incident update' if incident.is_update else 'New incident'
+                logger.info(f"{kind} saved: {incident.location} - {incident.description[:50]}...")
         
         return new_incidents
     
@@ -430,7 +447,7 @@ class TranStarScraper:
         new_incidents = self.save_new_incidents(incidents)
         
         if new_incidents:
-            logger.info(f"Found {len(new_incidents)} new incidents to alert on")
+            logger.info(f"Found {len(new_incidents)} new or updated incidents to alert on")
         else:
             logger.info("No new incidents to alert on")
         
@@ -452,3 +469,4 @@ def test_scraper():
 
 if __name__ == "__main__":
     test_scraper()
+
